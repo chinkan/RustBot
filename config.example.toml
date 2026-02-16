@@ -27,6 +27,26 @@ Be concise and helpful."""
 # The bot cannot access files outside this directory
 allowed_directory = "/tmp/rustbot-sandbox"
 
+[memory]
+# Path to the SQLite database file for persistent memory
+# Stores conversations, knowledge base, and vector embeddings
+database_path = "rustbot.db"
+
+[skills]
+# Directory containing skill markdown files
+# Skills are natural-language instructions loaded at startup
+directory = "skills"
+
+# Embedding API for vector search (optional)
+# When configured, enables hybrid vector + FTS5 search for memory.
+# Without this, falls back to FTS5 keyword search only.
+# Works with any OpenAI-compatible /v1/embeddings endpoint.
+# [embedding]
+# api_key = "YOUR_OPENROUTER_API_KEY"
+# base_url = "https://openrouter.ai/api/v1"
+# model = "openai/text-embedding-3-small"
+# dimensions = 1536
+
 # MCP Server Configurations
 # Each [[mcp_servers]] block defines an MCP server to connect to
 # The bot will discover and register tools from each server
