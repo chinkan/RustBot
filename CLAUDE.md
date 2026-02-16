@@ -112,6 +112,20 @@ src/
 | `anyhow` | Error handling |
 | `futures` | Async utilities |
 
+## CI (GitHub Actions)
+
+CI runs on every push to `main` and on pull requests targeting `main`. The pipeline is defined in `.github/workflows/ci.yml` and runs five parallel jobs:
+
+| Job | Command | Purpose |
+|-----|---------|---------|
+| **Check** | `cargo check` | Fast compilation check |
+| **Format** | `cargo fmt --all -- --check` | Enforces consistent formatting |
+| **Clippy** | `cargo clippy -- -D warnings` | Lint — all warnings are errors |
+| **Test** | `cargo test` | Runs all unit and integration tests |
+| **Build** | `cargo build --release` | Release build (runs after all other jobs pass) |
+
+All jobs use `dtolnay/rust-toolchain@stable` and `Swatinem/rust-cache@v2` for caching. Before opening a PR, ensure `cargo fmt`, `cargo clippy -- -D warnings`, and `cargo test` pass locally.
+
 ## Testing
 
 No automated tests exist yet. When adding tests:
