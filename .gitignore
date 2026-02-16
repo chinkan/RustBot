@@ -1,0 +1,5 @@
+/target
+config.toml
+*.swp
+*.swo
+.env
