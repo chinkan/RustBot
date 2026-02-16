@@ -32,3 +32,21 @@ anyhow = "1"
 
 # Async utilities
 futures = "0.3"
+
+# Async trait support
+async-trait = "0.1"
+
+# SQLite database with FTS5 and vector search support
+rusqlite = { version = "0.34", features = ["bundled", "modern-full"] }
+
+# UUID for message/entry IDs
+uuid = { version = "1", features = ["v4"] }
+
+# Chrono for timestamps
+chrono = { version = "0.4", features = ["serde"] }
+
+# Background task scheduler
+tokio-cron-scheduler = "0.13"
+
+# SQLite vector search extension
+sqlite-vec = "0.1"
