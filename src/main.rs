@@ -38,14 +38,8 @@ async fn main() -> Result<()> {
 
     info!("Configuration loaded successfully");
     info!("  Model: {}", config.openrouter.model);
-    info!(
-        "  Sandbox: {}",
-        config.sandbox.allowed_directory.display()
-    );
-    info!(
-        "  Allowed users: {:?}",
-        config.telegram.allowed_user_ids
-    );
+    info!("  Sandbox: {}", config.sandbox.allowed_directory.display());
+    info!("  Allowed users: {:?}", config.telegram.allowed_user_ids);
     info!("  MCP servers: {}", config.mcp_servers.len());
 
     // Initialize MCP connections
