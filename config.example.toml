@@ -1,0 +1,52 @@
+# RustBot Configuration
+
+[telegram]
+# Get your bot token from @BotFather on Telegram
+bot_token = "YOUR_TELEGRAM_BOT_TOKEN"
+# Only these Telegram user IDs can interact with the bot
+# Find your user ID by messaging @userinfobot on Telegram
+allowed_user_ids = [123456789]
+
+[openrouter]
+# Get your API key from https://openrouter.ai/keys
+api_key = "YOUR_OPENROUTER_API_KEY"
+# Model to use (see https://openrouter.ai/models)
+model = "qwen/qwen3-235b-a22b"
+# API base URL (usually no need to change)
+base_url = "https://openrouter.ai/api/v1"
+# Maximum tokens in response
+max_tokens = 4096
+# System prompt for the AI assistant
+system_prompt = """You are a helpful AI assistant with access to tools. \
+Use the available tools to help the user with their tasks. \
+When using file or terminal tools, operate only within the allowed sandbox directory. \
+Be concise and helpful."""
+
+[sandbox]
+# The directory where file operations and command execution are allowed
+# The bot cannot access files outside this directory
+allowed_directory = "/tmp/rustbot-sandbox"
+
+# MCP Server Configurations
+# Each [[mcp_servers]] block defines an MCP server to connect to
+# The bot will discover and register tools from each server
+
+# Example: Git MCP server (requires uvx/npx)
+# [[mcp_servers]]
+# name = "git"
+# command = "uvx"
+# args = ["mcp-server-git"]
+
+# Example: Filesystem MCP server
+# [[mcp_servers]]
+# name = "filesystem"
+# command = "npx"
+# args = ["-y", "@modelcontextprotocol/server-filesystem", "/tmp/rustbot-sandbox"]
+
+# Example: Web search MCP server with environment variables
+# [[mcp_servers]]
+# name = "brave-search"
+# command = "npx"
+# args = ["-y", "@anthropic/mcp-brave-search"]
+# [mcp_servers.env]
+# BRAVE_API_KEY = "your-brave-api-key"
