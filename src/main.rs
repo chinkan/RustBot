@@ -1,7 +1,11 @@
-mod bot;
+mod agent;
 mod config;
 mod llm;
 mod mcp;
+mod memory;
+mod platform;
+mod scheduler;
+mod skills;
 mod tools;
 
 use std::path::PathBuf;
@@ -11,9 +15,13 @@ use anyhow::{Context, Result};
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use crate::bot::AppState;
+use crate::agent::Agent;
 use crate::config::Config;
 use crate::mcp::McpManager;
+use crate::memory::MemoryStore;
+use crate::scheduler::tasks::register_builtin_tasks;
+use crate::scheduler::Scheduler;
+use crate::skills::loader::load_skills_from_dir;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -42,16 +50,53 @@ async fn main() -> Result<()> {
     info!("  Allowed users: {:?}", config.telegram.allowed_user_ids);
     info!("  MCP servers: {}", config.mcp_servers.len());
 
+    // Build embedding config if configured
+    let embedding_config =
+        config
+            .embedding
+            .as_ref()
+            .map(|cfg| crate::memory::embeddings::EmbeddingConfig {
+                api_key: cfg.api_key.clone(),
+                base_url: cfg.base_url.clone(),
+                model: cfg.model.clone(),
+                dimensions: cfg.dimensions,
+            });
+
+    // Initialize memory store (SQLite + vector embeddings)
+    let memory = MemoryStore::open(&config.memory.database_path, embedding_config)
+        .context("Failed to initialize memory store")?;
+    info!("  Database: {}", config.memory.database_path.display());
+
     // Initialize MCP connections
     let mut mcp_manager = McpManager::new();
     mcp_manager.connect_all(&config.mcp_servers).await;
 
-    // Create shared state
-    let state = Arc::new(AppState::new(config, mcp_manager));
+    // Load skills from markdown files
+    let skills = load_skills_from_dir(&config.skills.directory).await?;
+    info!("  Skills: {}", skills.len());
 
-    // Run the Telegram bot
+    // Create the agent
+    let agent = Arc::new(Agent::new(
+        config.clone(),
+        mcp_manager,
+        memory.clone(),
+        skills,
+    ));
+
+    // Initialize background task scheduler
+    let scheduler = Scheduler::new().await?;
+    register_builtin_tasks(&scheduler, memory).await?;
+    scheduler.start().await?;
+    info!("  Scheduler: active");
+
+    // Run the Telegram platform
     info!("Bot is starting...");
-    bot::run(state).await?;
+    platform::telegram::run(
+        agent,
+        config.telegram.allowed_user_ids.clone(),
+        &config.telegram.bot_token,
+    )
+    .await?;
 
     Ok(())
 }
