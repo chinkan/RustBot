@@ -30,11 +30,7 @@ fn validate_sandbox_path(sandbox_dir: &Path, requested: &str) -> Result<PathBuf>
         let parent_canonical = parent
             .canonicalize()
             .with_context(|| format!("Parent directory not found: {}", parent.display()))?;
-        parent_canonical.join(
-            requested_path
-                .file_name()
-                .context("Path has no filename")?,
-        )
+        parent_canonical.join(requested_path.file_name().context("Path has no filename")?)
     };
 
     if !check_path.starts_with(&sandbox_canonical) {
@@ -157,16 +153,19 @@ pub async fn execute_builtin_tool(
 
             // Create parent directories if they don't exist
             if let Some(parent) = full_path.parent() {
-                tokio::fs::create_dir_all(parent)
-                    .await
-                    .with_context(|| format!("Failed to create directories: {}", parent.display()))?;
+                tokio::fs::create_dir_all(parent).await.with_context(|| {
+                    format!("Failed to create directories: {}", parent.display())
+                })?;
             }
 
             info!("Writing file: {}", full_path.display());
             tokio::fs::write(&full_path, content)
                 .await
                 .with_context(|| format!("Failed to write file: {}", full_path.display()))?;
-            Ok(format!("File written successfully: {}", full_path.display()))
+            Ok(format!(
+                "File written successfully: {}",
+                full_path.display()
+            ))
         }
         "list_files" => {
             let path = arguments
@@ -183,7 +182,11 @@ pub async fn execute_builtin_tool(
 
             while let Some(entry) = read_dir.next_entry().await? {
                 let file_type = entry.file_type().await?;
-                let prefix = if file_type.is_dir() { "[DIR]" } else { "[FILE]" };
+                let prefix = if file_type.is_dir() {
+                    "[DIR]"
+                } else {
+                    "[FILE]"
+                };
                 entries.push(format!(
                     "{} {}",
                     prefix,

@@ -119,8 +119,9 @@ impl Agent {
                             serde_json::from_str(&tool_call.function.arguments)
                                 .unwrap_or(serde_json::Value::Object(serde_json::Map::new()));
 
-                        let tool_result =
-                            self.execute_tool(&tool_call.function.name, &arguments).await;
+                        let tool_result = self
+                            .execute_tool(&tool_call.function.name, &arguments)
+                            .await;
 
                         info!(
                             "Tool '{}' result length: {} chars",

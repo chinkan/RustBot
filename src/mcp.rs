@@ -53,12 +53,16 @@ impl McpManager {
         }))
         .with_context(|| format!("Failed to start MCP server process: {}", config.name))?;
 
-        let client = ().serve(transport).await.with_context(|| {
-            format!("Failed to initialize MCP connection: {}", config.name)
-        })?;
+        let client = ()
+            .serve(transport)
+            .await
+            .with_context(|| format!("Failed to initialize MCP connection: {}", config.name))?;
 
         let server_info = client.peer_info();
-        info!("Connected to MCP server '{}': {:?}", config.name, server_info);
+        info!(
+            "Connected to MCP server '{}': {:?}",
+            config.name, server_info
+        );
 
         let tools = client
             .list_all_tools()
@@ -132,7 +136,11 @@ impl McpManager {
             let prefix = format!("{}_", connection.name);
             if let Some(tool_name) = without_mcp.strip_prefix(&prefix) {
                 // Verify this tool exists on this server
-                if connection.tools.iter().any(|t| t.name.as_ref() == tool_name) {
+                if connection
+                    .tools
+                    .iter()
+                    .any(|t| t.name.as_ref() == tool_name)
+                {
                     info!(
                         "Calling MCP tool '{}' on server '{}'",
                         tool_name, connection.name
@@ -180,6 +188,7 @@ impl McpManager {
     }
 
     /// Shutdown all MCP connections
+    #[allow(dead_code)]
     pub async fn shutdown(&mut self) {
         for (name, connection) in self.connections.drain() {
             info!("Shutting down MCP server: {}", name);

@@ -121,8 +121,7 @@ impl MemoryStore {
         let messages = stmt
             .query_map(rusqlite::params![conversation_id], |row| {
                 let tool_calls_json: Option<String> = row.get(2)?;
-                let tool_calls =
-                    tool_calls_json.and_then(|json| serde_json::from_str(&json).ok());
+                let tool_calls = tool_calls_json.and_then(|json| serde_json::from_str(&json).ok());
 
                 Ok(ChatMessage {
                     role: row.get(0)?,
@@ -207,10 +206,9 @@ impl MemoryStore {
             let search_limit = (limit * 3) as i64;
             let mut stmt = conn.prepare(sql)?;
             let messages = stmt
-                .query_map(
-                    rusqlite::params![query_bytes, search_limit, query],
-                    |row| parse_message_row(row),
-                )?
+                .query_map(rusqlite::params![query_bytes, search_limit, query], |row| {
+                    parse_message_row(row)
+                })?
                 .collect::<Result<Vec<_>, _>>()
                 .context("Failed to hybrid-search messages")?;
 

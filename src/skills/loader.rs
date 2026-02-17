@@ -64,10 +64,10 @@ async fn load_skill_file(path: &Path) -> Result<Skill> {
         .with_context(|| format!("Failed to read skill file: {}", path.display()))?;
 
     // Try to parse YAML frontmatter
-    if content.starts_with("---") {
-        if let Some(end) = content[3..].find("---") {
-            let frontmatter = content[3..3 + end].trim();
-            let body = content[3 + end + 3..].trim().to_string();
+    if let Some(stripped) = content.strip_prefix("---") {
+        if let Some(end) = stripped.find("---") {
+            let frontmatter = stripped[..end].trim();
+            let body = stripped[end + 3..].trim().to_string();
 
             let name = extract_field(frontmatter, "name");
             let description = extract_field(frontmatter, "description");

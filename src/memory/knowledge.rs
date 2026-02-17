@@ -6,6 +6,7 @@ use crate::memory::conversations::{f32_slice_to_bytes, f32_vec_to_bytes};
 
 /// A knowledge entry the agent has learned
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct KnowledgeEntry {
     pub id: String,
     pub category: String,
@@ -93,11 +94,7 @@ impl MemoryStore {
 
     /// Hybrid search across knowledge using Reciprocal Rank Fusion (vector + FTS5).
     /// Falls back to FTS5-only if embeddings are not available.
-    pub async fn search_knowledge(
-        &self,
-        query: &str,
-        limit: usize,
-    ) -> Result<Vec<KnowledgeEntry>> {
+    pub async fn search_knowledge(&self, query: &str, limit: usize) -> Result<Vec<KnowledgeEntry>> {
         let query_embedding = self.embeddings.try_embed_one(query).await;
 
         let conn = self.conn.lock().await;
@@ -135,10 +132,9 @@ impl MemoryStore {
             let search_limit = (limit * 3) as i64;
             let mut stmt = conn.prepare(sql)?;
             let entries = stmt
-                .query_map(
-                    rusqlite::params![query_bytes, search_limit, query],
-                    |row| parse_knowledge_row(row),
-                )?
+                .query_map(rusqlite::params![query_bytes, search_limit, query], |row| {
+                    parse_knowledge_row(row)
+                })?
                 .collect::<Result<Vec<_>, _>>()
                 .context("Failed to hybrid-search knowledge")?;
 
@@ -166,6 +162,7 @@ impl MemoryStore {
     }
 
     /// List all knowledge in a category
+    #[allow(dead_code)]
     pub async fn list_knowledge(&self, category: &str) -> Result<Vec<KnowledgeEntry>> {
         let conn = self.conn.lock().await;
         let mut stmt = conn.prepare(
@@ -176,7 +173,7 @@ impl MemoryStore {
         )?;
 
         let entries = stmt
-            .query_map(rusqlite::params![category], |row| parse_knowledge_row(row))?
+            .query_map(rusqlite::params![category], parse_knowledge_row)?
             .collect::<Result<Vec<_>, _>>()
             .context("Failed to list knowledge")?;
 
@@ -184,6 +181,7 @@ impl MemoryStore {
     }
 
     /// Forget a knowledge entry
+    #[allow(dead_code)]
     pub async fn forget(&self, category: &str, key: &str) -> Result<bool> {
         let conn = self.conn.lock().await;
 

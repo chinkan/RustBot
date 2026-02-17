@@ -5,6 +5,7 @@ use tracing::info;
 
 /// A loaded skill from a markdown file
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct Skill {
     /// Skill name (derived from filename or frontmatter)
     pub name: String,
@@ -36,6 +37,7 @@ impl SkillRegistry {
     }
 
     /// Get a skill by name
+    #[allow(dead_code)]
     pub fn get(&self, name: &str) -> Option<&Skill> {
         self.skills.get(name)
     }
@@ -66,6 +68,7 @@ impl SkillRegistry {
         self.skills.len()
     }
 
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.skills.is_empty()
     }

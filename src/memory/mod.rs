@@ -25,9 +25,16 @@ impl MemoryStore {
     pub fn open(path: &Path, embedding_config: Option<EmbeddingConfig>) -> Result<Self> {
         // Register sqlite-vec extension before opening any connection
         unsafe {
-            rusqlite::ffi::sqlite3_auto_extension(Some(std::mem::transmute(
-                sqlite_vec::sqlite3_vec_init as *const (),
-            )));
+            type VecInitFn = unsafe extern "C" fn(
+                *mut rusqlite::ffi::sqlite3,
+                *mut *mut i8,
+                *const rusqlite::ffi::sqlite3_api_routines,
+            ) -> i32;
+            rusqlite::ffi::sqlite3_auto_extension(Some(
+                std::mem::transmute::<*const (), VecInitFn>(
+                    sqlite_vec::sqlite3_vec_init as *const (),
+                ),
+            ));
         }
 
         let conn = Connection::open(path)
@@ -54,11 +61,19 @@ impl MemoryStore {
     }
 
     /// Open an in-memory database (for testing)
+    #[allow(dead_code)]
     pub fn open_in_memory() -> Result<Self> {
         unsafe {
-            rusqlite::ffi::sqlite3_auto_extension(Some(std::mem::transmute(
-                sqlite_vec::sqlite3_vec_init as *const (),
-            )));
+            type VecInitFn = unsafe extern "C" fn(
+                *mut rusqlite::ffi::sqlite3,
+                *mut *mut i8,
+                *const rusqlite::ffi::sqlite3_api_routines,
+            ) -> i32;
+            rusqlite::ffi::sqlite3_auto_extension(Some(
+                std::mem::transmute::<*const (), VecInitFn>(
+                    sqlite_vec::sqlite3_vec_init as *const (),
+                ),
+            ));
         }
 
         let conn = Connection::open_in_memory()?;
@@ -76,7 +91,6 @@ impl MemoryStore {
     }
 
     fn run_migrations(conn: &Connection, dims: usize) -> Result<()> {
-
         conn.execute_batch(
             "
             -- Conversations table
@@ -182,10 +196,7 @@ impl MemoryStore {
             .context("schema_meta query")?;
         let stored_dims: Option<usize> = raw.and_then(|s| s.parse().ok());
 
-        let need_migrate = match stored_dims {
-            Some(s) if s == dims => false,
-            _ => true,
-        };
+        let need_migrate = !matches!(stored_dims, Some(s) if s == dims);
 
         let table_exists = |conn: &Connection, name: &str| -> bool {
             conn.query_row(
@@ -219,11 +230,10 @@ impl MemoryStore {
                 "INSERT OR REPLACE INTO schema_meta (key, value) VALUES ('embedding_dims', ?1)",
                 [dims.to_string()],
             )?;
-            if stored_dims.is_some() {
+            if let Some(prev_dims) = stored_dims {
                 info!(
                     "Embedding dimension changed from {} to {}; vector tables recreated.",
-                    stored_dims.unwrap(),
-                    dims
+                    prev_dims, dims
                 );
             }
         } else {
