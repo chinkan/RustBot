@@ -34,7 +34,8 @@ impl MemoryStore {
             .with_context(|| format!("Failed to open database: {}", path.display()))?;
 
         // Enable WAL mode for better concurrent read performance
-        conn.execute_batch("PRAGMA journal_mode=WAL;")?;
+        // journal_mode PRAGMA always returns the resulting mode, so use query_row
+        let _: String = conn.query_row("PRAGMA journal_mode=WAL", [], |row| row.get(0))?;
         conn.execute_batch("PRAGMA foreign_keys=ON;")?;
 
         let embeddings = EmbeddingEngine::new(embedding_config);
