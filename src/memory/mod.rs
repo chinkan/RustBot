@@ -40,12 +40,15 @@ impl MemoryStore {
 
         let embeddings = EmbeddingEngine::new(embedding_config);
 
+        // Run migrations on the raw connection before wrapping in Mutex.
+        // This avoids blocking_lock() panic when called from async context.
+        Self::run_migrations(&conn, embeddings.dimensions())?;
+
         let store = Self {
             conn: Arc::new(Mutex::new(conn)),
             embeddings: Arc::new(embeddings),
         };
 
-        store.run_migrations_sync()?;
         info!("Memory store initialized at: {}", path.display());
         Ok(store)
     }
@@ -63,18 +66,16 @@ impl MemoryStore {
 
         let embeddings = EmbeddingEngine::new(None);
 
+        Self::run_migrations(&conn, embeddings.dimensions())?;
+
         let store = Self {
             conn: Arc::new(Mutex::new(conn)),
             embeddings: Arc::new(embeddings),
         };
-        store.run_migrations_sync()?;
         Ok(store)
     }
 
-    fn run_migrations_sync(&self) -> Result<()> {
-        let conn = self.conn.blocking_lock();
-
-        let dims = self.embeddings.dimensions();
+    fn run_migrations(conn: &Connection, dims: usize) -> Result<()> {
 
         conn.execute_batch(
             "
@@ -187,8 +188,8 @@ impl MemoryStore {
             Ok(())
         };
 
-        create_vec_table(&conn, "message_embeddings", dims)?;
-        create_vec_table(&conn, "knowledge_embeddings", dims)?;
+        create_vec_table(conn, "message_embeddings", dims)?;
+        create_vec_table(conn, "knowledge_embeddings", dims)?;
 
         Ok(())
     }
