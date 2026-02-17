@@ -126,8 +126,7 @@ async fn handle_message(bot: Bot, msg: Message, agent: Arc<Agent>) -> ResponseRe
     if text == "/skills" {
         let skills = agent.skills.list();
         if skills.is_empty() {
-            bot.send_message(msg.chat.id, "No skills loaded.")
-                .await?;
+            bot.send_message(msg.chat.id, "No skills loaded.").await?;
         } else {
             let mut skill_list = String::from("Loaded skills:\n\n");
             for skill in &skills {

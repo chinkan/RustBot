@@ -57,6 +57,7 @@ impl Scheduler {
     }
 
     /// Shutdown the scheduler
+    #[allow(dead_code)]
     pub async fn shutdown(&mut self) -> Result<()> {
         self.inner
             .shutdown()

@@ -59,10 +59,7 @@ impl EmbeddingEngine {
 
     /// Embedding dimensions (default 384)
     pub fn dimensions(&self) -> usize {
-        self.config
-            .as_ref()
-            .map(|c| c.dimensions)
-            .unwrap_or(384)
+        self.config.as_ref().map(|c| c.dimensions).unwrap_or(384)
     }
 
     /// Generate a single embedding for one text via API

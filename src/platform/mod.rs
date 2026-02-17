@@ -2,6 +2,7 @@ pub mod telegram;
 
 /// A message received from any platform
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct IncomingMessage {
     /// Platform identifier (e.g., "telegram", "discord")
     pub platform: String,

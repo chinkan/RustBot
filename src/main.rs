@@ -19,8 +19,8 @@ use crate::agent::Agent;
 use crate::config::Config;
 use crate::mcp::McpManager;
 use crate::memory::MemoryStore;
-use crate::scheduler::Scheduler;
 use crate::scheduler::tasks::register_builtin_tasks;
+use crate::scheduler::Scheduler;
 use crate::skills::loader::load_skills_from_dir;
 
 #[tokio::main]
@@ -46,33 +46,26 @@ async fn main() -> Result<()> {
 
     info!("Configuration loaded successfully");
     info!("  Model: {}", config.openrouter.model);
-    info!(
-        "  Sandbox: {}",
-        config.sandbox.allowed_directory.display()
-    );
-    info!(
-        "  Allowed users: {:?}",
-        config.telegram.allowed_user_ids
-    );
+    info!("  Sandbox: {}", config.sandbox.allowed_directory.display());
+    info!("  Allowed users: {:?}", config.telegram.allowed_user_ids);
     info!("  MCP servers: {}", config.mcp_servers.len());
 
     // Build embedding config if configured
-    let embedding_config = config.embedding.as_ref().map(|cfg| {
-        crate::memory::embeddings::EmbeddingConfig {
-            api_key: cfg.api_key.clone(),
-            base_url: cfg.base_url.clone(),
-            model: cfg.model.clone(),
-            dimensions: cfg.dimensions,
-        }
-    });
+    let embedding_config =
+        config
+            .embedding
+            .as_ref()
+            .map(|cfg| crate::memory::embeddings::EmbeddingConfig {
+                api_key: cfg.api_key.clone(),
+                base_url: cfg.base_url.clone(),
+                model: cfg.model.clone(),
+                dimensions: cfg.dimensions,
+            });
 
     // Initialize memory store (SQLite + vector embeddings)
     let memory = MemoryStore::open(&config.memory.database_path, embedding_config)
         .context("Failed to initialize memory store")?;
-    info!(
-        "  Database: {}",
-        config.memory.database_path.display()
-    );
+    info!("  Database: {}", config.memory.database_path.display());
 
     // Initialize MCP connections
     let mut mcp_manager = McpManager::new();
@@ -83,7 +76,12 @@ async fn main() -> Result<()> {
     info!("  Skills: {}", skills.len());
 
     // Create the agent
-    let agent = Arc::new(Agent::new(config.clone(), mcp_manager, memory.clone(), skills));
+    let agent = Arc::new(Agent::new(
+        config.clone(),
+        mcp_manager,
+        memory.clone(),
+        skills,
+    ));
 
     // Initialize background task scheduler
     let scheduler = Scheduler::new().await?;
