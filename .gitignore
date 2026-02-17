@@ -3,3 +3,4 @@ config.toml
 *.swp
 *.swo
 .env
+rustbot.db*
