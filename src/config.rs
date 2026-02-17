@@ -9,6 +9,22 @@ pub struct Config {
     pub sandbox: SandboxConfig,
     #[serde(default)]
     pub mcp_servers: Vec<McpServerConfig>,
+    #[serde(default = "default_memory_config")]
+    pub memory: MemoryConfig,
+    #[serde(default = "default_skills_config")]
+    pub skills: SkillsConfig,
+    pub embedding: Option<EmbeddingApiConfig>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct EmbeddingApiConfig {
+    pub api_key: String,
+    #[serde(default = "default_embedding_base_url")]
+    pub base_url: String,
+    #[serde(default = "default_embedding_model")]
+    pub model: String,
+    #[serde(default = "default_embedding_dimensions")]
+    pub dimensions: usize,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -45,6 +61,18 @@ pub struct McpServerConfig {
     pub env: std::collections::HashMap<String, String>,
 }
 
+#[derive(Debug, Deserialize, Clone)]
+pub struct MemoryConfig {
+    #[serde(default = "default_db_path")]
+    pub database_path: PathBuf,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct SkillsConfig {
+    #[serde(default = "default_skills_dir")]
+    pub directory: PathBuf,
+}
+
 fn default_model() -> String {
     "qwen/qwen3-235b-a22b".to_string()
 }
@@ -62,6 +90,38 @@ fn default_system_prompt() -> String {
      Use the available tools to help the user with their tasks. \
      When using file or terminal tools, operate only within the allowed sandbox directory."
         .to_string()
+}
+
+fn default_db_path() -> PathBuf {
+    PathBuf::from("rustbot.db")
+}
+
+fn default_skills_dir() -> PathBuf {
+    PathBuf::from("skills")
+}
+
+fn default_embedding_base_url() -> String {
+    "https://openrouter.ai/api/v1".to_string()
+}
+
+fn default_embedding_model() -> String {
+    "openai/text-embedding-3-small".to_string()
+}
+
+fn default_embedding_dimensions() -> usize {
+    1536
+}
+
+fn default_memory_config() -> MemoryConfig {
+    MemoryConfig {
+        database_path: default_db_path(),
+    }
+}
+
+fn default_skills_config() -> SkillsConfig {
+    SkillsConfig {
+        directory: default_skills_dir(),
+    }
 }
 
 impl Config {
