@@ -3,7 +3,7 @@ pub mod embeddings;
 pub mod knowledge;
 
 use anyhow::{Context, Result};
-use rusqlite::Connection;
+use rusqlite::{Connection, OptionalExtension};
 use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -162,34 +162,95 @@ impl MemoryStore {
                 INSERT INTO knowledge_fts(rowid, key, value)
                     VALUES (NEW.rowid, NEW.key, NEW.value);
             END;
+
+            -- Schema metadata (e.g. embedding dimension for vec tables)
+            CREATE TABLE IF NOT EXISTS schema_meta (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
             ",
         )?;
 
-        // Create vec0 virtual tables for vector search (sqlite-vec)
-        // vec0 doesn't support IF NOT EXISTS, so check first
-        let create_vec_table = |conn: &Connection, name: &str, dims: usize| -> Result<()> {
-            let exists: bool = conn
-                .query_row(
-                    &format!(
-                        "SELECT count(*) > 0 FROM sqlite_master WHERE type='table' AND name='{}'",
-                        name
-                    ),
-                    [],
-                    |row| row.get(0),
-                )
-                .unwrap_or(false);
+        // Stored embedding dimension (None if legacy DB without schema_meta row)
+        let raw: Option<String> = conn
+            .query_row(
+                "SELECT value FROM schema_meta WHERE key = 'embedding_dims'",
+                [],
+                |row| row.get(0),
+            )
+            .optional()
+            .context("schema_meta query")?;
+        let stored_dims: Option<usize> = raw.and_then(|s| s.parse().ok());
 
-            if !exists {
-                conn.execute_batch(&format!(
-                    "CREATE VIRTUAL TABLE {} USING vec0(embedding float[{}]);",
-                    name, dims
-                ))?;
-            }
-            Ok(())
+        let need_migrate = match stored_dims {
+            Some(s) if s == dims => false,
+            _ => true,
         };
 
-        create_vec_table(conn, "message_embeddings", dims)?;
-        create_vec_table(conn, "knowledge_embeddings", dims)?;
+        let table_exists = |conn: &Connection, name: &str| -> bool {
+            conn.query_row(
+                &format!(
+                    "SELECT count(*) > 0 FROM sqlite_master WHERE type='table' AND name='{}'",
+                    name
+                ),
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or(false)
+        };
+
+        if need_migrate {
+            // Drop vec tables so we can recreate with new dimension
+            if table_exists(conn, "message_embeddings") {
+                conn.execute_batch("DROP TABLE message_embeddings;")?;
+            }
+            if table_exists(conn, "knowledge_embeddings") {
+                conn.execute_batch("DROP TABLE knowledge_embeddings;")?;
+            }
+            conn.execute_batch(&format!(
+                "CREATE VIRTUAL TABLE message_embeddings USING vec0(embedding float[{}]);",
+                dims
+            ))?;
+            conn.execute_batch(&format!(
+                "CREATE VIRTUAL TABLE knowledge_embeddings USING vec0(embedding float[{}]);",
+                dims
+            ))?;
+            conn.execute(
+                "INSERT OR REPLACE INTO schema_meta (key, value) VALUES ('embedding_dims', ?1)",
+                [dims.to_string()],
+            )?;
+            if stored_dims.is_some() {
+                info!(
+                    "Embedding dimension changed from {} to {}; vector tables recreated.",
+                    stored_dims.unwrap(),
+                    dims
+                );
+            }
+        } else {
+            // Create vec tables only if they don't exist (same dimension)
+            if !table_exists(conn, "message_embeddings") {
+                conn.execute_batch(&format!(
+                    "CREATE VIRTUAL TABLE message_embeddings USING vec0(embedding float[{}]);",
+                    dims
+                ))?;
+                conn.execute(
+                    "INSERT OR REPLACE INTO schema_meta (key, value) VALUES ('embedding_dims', ?1)",
+                    [dims.to_string()],
+                )?;
+            }
+            if !table_exists(conn, "knowledge_embeddings") {
+                conn.execute_batch(&format!(
+                    "CREATE VIRTUAL TABLE knowledge_embeddings USING vec0(embedding float[{}]);",
+                    dims
+                ))?;
+                if stored_dims.is_none() {
+                    conn.execute(
+                        "INSERT OR REPLACE INTO schema_meta (key, value) VALUES ('embedding_dims', ?1)",
+                        [dims.to_string()],
+                    )?;
+                }
+            }
+        }
 
         Ok(())
     }

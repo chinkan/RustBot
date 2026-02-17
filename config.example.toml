@@ -44,7 +44,7 @@ directory = "skills"
 # [embedding]
 # api_key = "YOUR_OPENROUTER_API_KEY"
 # base_url = "https://openrouter.ai/api/v1"
-# model = "openai/text-embedding-3-small"
+# model = "qwen/qwen3-embedding-8b"
 # dimensions = 1536
 
 # MCP Server Configurations

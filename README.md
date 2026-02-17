@@ -55,6 +55,7 @@ See [`config.example.toml`](config.example.toml) for all options.
 | `openrouter.api_key` | OpenRouter API key |
 | `openrouter.model` | LLM model ID (e.g., `qwen/qwen3-235b-a22b`) |
 | `sandbox.allowed_directory` | Directory for file/command operations |
+| `embedding` (optional) | Vector search for memory |
 | `mcp_servers` | List of MCP servers to connect |
 
 ### MCP Server Configuration
