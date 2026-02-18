@@ -192,6 +192,120 @@ impl Agent {
         Ok("I've reached the maximum number of tool call iterations. Please try rephrasing your request.".to_string())
     }
 
+    /// Re-register all active scheduled tasks from the DB into the scheduler.
+    /// Called once at startup after the agent is constructed.
+    pub async fn restore_scheduled_tasks(&self) {
+        let tasks = match self.task_store.list_all_active().await {
+            Ok(t) => t,
+            Err(e) => {
+                tracing::error!("Failed to load scheduled tasks for restore: {}", e);
+                return;
+            }
+        };
+
+        let count = tasks.len();
+        for task in tasks {
+            // Build the same fire closure as in schedule_task handler
+            let job_tx = self.job_tx.clone();
+            let bot_clone = Arc::clone(&self.bot);
+            let tid = task.id.clone();
+            let uid = task.user_id.clone();
+            let cid = task.chat_id.clone();
+            let prompt_cap = task.prompt.clone();
+            let is_recurring = task.trigger_type == "recurring";
+            let store_clone = self.task_store.clone();
+
+            let fire = move || {
+                let tx = job_tx.clone();
+                let bot = bot_clone.clone();
+                let store = store_clone.clone();
+                let tid = tid.clone();
+                let uid = uid.clone();
+                let cid = cid.clone();
+                let prompt = prompt_cap.clone();
+                let recurring = is_recurring;
+                Box::pin(async move {
+                    let incoming = crate::platform::IncomingMessage {
+                        platform: "telegram".to_string(),
+                        user_id: uid,
+                        chat_id: cid,
+                        user_name: String::new(),
+                        text: prompt,
+                    };
+                    let req = ScheduledJobRequest {
+                        incoming,
+                        bot,
+                        task_id: tid,
+                        is_recurring: recurring,
+                        task_store: store,
+                    };
+                    if let Err(e) = tx.send(req) {
+                        tracing::error!("Failed to dispatch restored scheduled job: {}", e);
+                    }
+                })
+                    as std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>
+            };
+
+            // Register with the right scheduler method based on trigger_type
+            let sched_result = if task.trigger_type == "one_shot" {
+                match parse_one_shot_delay(&task.trigger_value) {
+                    Ok(delay) => {
+                        self.scheduler
+                            .add_one_shot_job(delay, &task.description, fire)
+                            .await
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            "Skipping restore of one-shot task {} (trigger has passed or invalid: {})",
+                            task.id,
+                            e
+                        );
+                        // Mark as completed since its time has passed
+                        let _ = self.task_store.set_status(&task.id, "completed").await;
+                        continue;
+                    }
+                }
+            } else {
+                self.scheduler
+                    .add_cron_job(&task.trigger_value, &task.description, fire)
+                    .await
+            };
+
+            match sched_result {
+                Ok(sched_id) => {
+                    if let Err(e) = self
+                        .task_store
+                        .update_scheduler_job_id(&task.id, &sched_id.to_string())
+                        .await
+                    {
+                        tracing::warn!(
+                            "Failed to update scheduler_job_id for restored task {}: {}",
+                            task.id,
+                            e
+                        );
+                    }
+                    tracing::info!(
+                        "Restored scheduled task: {} ({})",
+                        task.id,
+                        task.description
+                    );
+                }
+                Err(e) => {
+                    tracing::error!(
+                        "Failed to restore scheduled task {} ({}): {}",
+                        task.id,
+                        task.description,
+                        e
+                    );
+                }
+            }
+        }
+
+        if count > 0 {
+            tracing::info!("Restored {} scheduled task(s) from DB", count);
+        }
+    }
+
     /// Clear conversation history for a user
     pub async fn clear_conversation(&self, platform: &str, user_id: &str) -> Result<()> {
         self.memory.clear_conversation(platform, user_id).await

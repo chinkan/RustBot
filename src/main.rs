@@ -150,6 +150,8 @@ async fn main() -> Result<()> {
     register_builtin_tasks(&scheduler, memory).await?;
     scheduler.start().await?;
     info!("  Scheduler: active");
+    agent.restore_scheduled_tasks().await;
+    info!("  Scheduled tasks: restored from DB");
 
     // Run the Telegram platform
     info!("Bot is starting...");
