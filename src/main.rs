@@ -91,10 +91,11 @@ async fn main() -> Result<()> {
 
     // Run the Telegram platform
     info!("Bot is starting...");
+    let bot = Arc::new(teloxide::Bot::new(&config.telegram.bot_token));
     platform::telegram::run(
         agent,
         config.telegram.allowed_user_ids.clone(),
-        &config.telegram.bot_token,
+        Arc::clone(&bot),
     )
     .await?;
 
