@@ -116,6 +116,7 @@ impl Agent {
         let mut all_tools: Vec<ToolDefinition> = tools::builtin_tool_definitions();
         all_tools.extend(self.mcp.tool_definitions());
         all_tools.extend(self.memory_tool_definitions());
+        all_tools.extend(self.scheduling_tool_definitions());
 
         // Agentic loop — keep calling LLM until we get a non-tool response
         let max_iterations = 10;
@@ -190,6 +191,7 @@ impl Agent {
         let mut all_tools = tools::builtin_tool_definitions();
         all_tools.extend(self.mcp.tool_definitions());
         all_tools.extend(self.memory_tool_definitions());
+        all_tools.extend(self.scheduling_tool_definitions());
         all_tools
     }
 
@@ -241,6 +243,59 @@ impl Agent {
                             "limit": { "type": "integer", "description": "Max results (default 5)" }
                         },
                         "required": ["query"]
+                    }),
+                },
+            },
+        ]
+    }
+
+    /// Scheduling-related tool definitions exposed to the LLM
+    fn scheduling_tool_definitions(&self) -> Vec<ToolDefinition> {
+        use serde_json::json;
+
+        vec![
+            ToolDefinition {
+                tool_type: "function".to_string(),
+                function: FunctionDefinition {
+                    name: "schedule_task".to_string(),
+                    description: concat!(
+                        "Schedule a task to run at a future time. The prompt will be executed by the AI agent ",
+                        "at the scheduled time (full agentic loop). ",
+                        "For one_shot: trigger_value is ISO 8601 datetime e.g. '2026-03-05T12:00:00'. ",
+                        "For recurring: trigger_value is a 6-field cron expression ",
+                        "(sec min hour day month weekday) e.g. '0 0 9 * * MON' for every Monday at 9am."
+                    ).to_string(),
+                    parameters: json!({
+                        "type": "object",
+                        "properties": {
+                            "trigger_type":  { "type": "string", "enum": ["one_shot", "recurring"] },
+                            "trigger_value": { "type": "string", "description": "ISO 8601 datetime (one_shot) or 6-field cron expression (recurring)" },
+                            "prompt":        { "type": "string", "description": "The message the agent will process at trigger time" },
+                            "description":   { "type": "string", "description": "Human-readable label for this task" }
+                        },
+                        "required": ["trigger_type", "trigger_value", "prompt", "description"]
+                    }),
+                },
+            },
+            ToolDefinition {
+                tool_type: "function".to_string(),
+                function: FunctionDefinition {
+                    name: "list_scheduled_tasks".to_string(),
+                    description: "List all active scheduled tasks for the current user.".to_string(),
+                    parameters: json!({ "type": "object", "properties": {} }),
+                },
+            },
+            ToolDefinition {
+                tool_type: "function".to_string(),
+                function: FunctionDefinition {
+                    name: "cancel_scheduled_task".to_string(),
+                    description: "Cancel an active scheduled task by its ID.".to_string(),
+                    parameters: json!({
+                        "type": "object",
+                        "properties": {
+                            "task_id": { "type": "string", "description": "The task ID from list_scheduled_tasks" }
+                        },
+                        "required": ["task_id"]
                     }),
                 },
             },
