@@ -1,3 +1,4 @@
+pub mod reminders;
 pub mod tasks;
 
 use anyhow::{Context, Result};
