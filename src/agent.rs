@@ -397,7 +397,17 @@ impl Agent {
                         "at the scheduled time (full agentic loop). ",
                         "For one_shot: trigger_value is ISO 8601 datetime e.g. '2026-03-05T12:00:00'. ",
                         "For recurring: trigger_value is a 6-field cron expression ",
-                        "(sec min hour day month weekday) e.g. '0 0 9 * * MON' for every Monday at 9am."
+                        "(sec min hour day month weekday) e.g. '0 0 9 * * MON' for every Monday at 9am.\n\n",
+                        "TIME INFERENCE RULES — follow these strictly, do not ask unnecessary questions:\n",
+                        "- The current date and time is in your system prompt. Always use it as the reference.\n",
+                        "- Time only, no date (e.g. '5:20', '9:30am'): assume TODAY. If the time is in the past today, use tomorrow.\n",
+                        "- The user's AM/PM intent is clear from context: if it's currently 5:15pm and they say '5:20', ",
+                        "that is obviously 5:20pm today — schedule it immediately without asking.\n",
+                        "- '12:00' or 'noon' = 12:00pm. 'midnight' = 00:00.\n",
+                        "- ONLY ask for AM/PM clarification when it is genuinely ambiguous: ",
+                        "e.g. user says 'Friday 12:00' with no other context (could be noon or midnight).\n",
+                        "- Day of week only (e.g. 'Friday'): assume the NEXT occurrence of that day.\n",
+                        "- Never ask for information you can infer. Prefer acting over asking."
                     ).to_string(),
                     parameters: json!({
                         "type": "object",
