@@ -79,6 +79,15 @@ impl Agent {
             prompt.push_str(&skill_context);
         }
 
+        // Append current timestamp and optional location
+        let now = chrono::Utc::now()
+            .format("%Y-%m-%d %H:%M:%S UTC")
+            .to_string();
+        prompt.push_str(&format!("\n\nCurrent date and time: {}", now));
+        if let Some(ref loc) = self.config.location {
+            prompt.push_str(&format!("\nUser location: {}", loc));
+        }
+
         prompt
     }
 

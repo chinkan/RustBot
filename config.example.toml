@@ -22,6 +22,9 @@ Use the available tools to help the user with their tasks. \
 When using file or terminal tools, operate only within the allowed sandbox directory. \
 Be concise and helpful."""
 
+# Your location, injected into the system prompt so the AI knows your timezone/region
+# location = "Tokyo, Japan"
+
 [sandbox]
 # The directory where file operations and command execution are allowed
 # The bot cannot access files outside this directory
