@@ -123,10 +123,23 @@ async fn main() -> Result<()> {
                     continue;
                 }
             };
-            let chat_id_val: i64 = req.incoming.chat_id.parse().unwrap_or(0);
+            let chat_id_val: i64 = match req.incoming.chat_id.parse() {
+                Ok(v) => v,
+                Err(_) => {
+                    tracing::error!(
+                        "Unparseable chat_id '{}' for task {}",
+                        req.incoming.chat_id,
+                        req.task_id
+                    );
+                    continue;
+                }
+            };
             let chat = teloxide::types::ChatId(chat_id_val);
             for chunk in crate::agent::split_response_chunks(&response, 4000) {
-                if let Err(e) = req.bot.send_message(chat, chunk).await {
+                if chunk.is_empty() {
+                    continue;
+                }
+                if let Err(e) = req.bot.send_message(chat, &chunk).await {
                     tracing::error!("Failed to send scheduled response: {}", e);
                 }
             }

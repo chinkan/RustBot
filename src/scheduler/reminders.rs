@@ -92,6 +92,40 @@ impl ScheduledTaskStore {
         Ok(())
     }
 
+    pub async fn get_by_id(&self, id: &str) -> Result<Option<ScheduledTask>> {
+        let conn = self.conn.lock().await;
+        let mut stmt = conn
+            .prepare(
+                "SELECT id, scheduler_job_id, user_id, chat_id, platform, trigger_type,
+                        trigger_value, prompt, description, status, created_at, next_run_at
+                 FROM scheduled_tasks WHERE id = ?1",
+            )
+            .context("Failed to prepare get_by_id query")?;
+        let mut rows = stmt
+            .query_map(rusqlite::params![id], |row| {
+                Ok(ScheduledTask {
+                    id: row.get(0)?,
+                    scheduler_job_id: row.get(1)?,
+                    user_id: row.get(2)?,
+                    chat_id: row.get(3)?,
+                    platform: row.get(4)?,
+                    trigger_type: row.get(5)?,
+                    trigger_value: row.get(6)?,
+                    prompt: row.get(7)?,
+                    description: row.get(8)?,
+                    status: row.get(9)?,
+                    created_at: row.get(10)?,
+                    next_run_at: row.get(11)?,
+                })
+            })
+            .context("Failed to query task by id")?;
+        match rows.next() {
+            Some(Ok(task)) => Ok(Some(task)),
+            Some(Err(e)) => Err(e).context("Failed to deserialize task"),
+            None => Ok(None),
+        }
+    }
+
     pub async fn update_next_run_at(&self, id: &str, next_run_at: &str) -> Result<()> {
         let conn = self.conn.lock().await;
         conn.execute(
