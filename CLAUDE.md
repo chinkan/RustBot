@@ -154,6 +154,30 @@ Update `default_model()` in `src/config.rs`. Users can also override this in the
 
 Add a `[[mcp_servers]]` block to `config.toml` with `name`, `command`, `args`, and optional `env` fields. See `config.example.toml` for examples.
 
+### Adding a new bot skill
+
+Bot skills are natural-language instructions loaded at startup and injected into the LLM's system prompt. Each skill must be in its own folder following the Claude agent skills format:
+
+```
+skills/
+  skill-name/
+    SKILL.md           # Required: YAML frontmatter + instruction body
+    supporting-file.*  # Optional: templates, examples, reference docs
+```
+
+**SKILL.md frontmatter:**
+```yaml
+---
+name: skill-name       # lowercase letters, numbers, hyphens only
+description: Brief description of what this skill does
+tags: [tag1, tag2]     # optional: for organization
+---
+```
+
+1. Create `skills/<skill-name>/SKILL.md` with frontmatter and instruction body
+2. The skill is auto-loaded at startup — no code changes needed
+3. Configure the skills directory in `config.toml`: `[skills] directory = "skills"`
+
 ## Files Not to Commit
 
 - `config.toml` - Contains API keys and tokens
