@@ -1,11 +1,16 @@
 use anyhow::Result;
+use std::sync::{Arc, Weak};
 use tracing::info;
+
+use teloxide::Bot;
 
 use crate::config::Config;
 use crate::llm::{ChatMessage, FunctionDefinition, LlmClient, ToolDefinition};
 use crate::mcp::McpManager;
 use crate::memory::MemoryStore;
 use crate::platform::IncomingMessage;
+use crate::scheduler::reminders::ScheduledTaskStore;
+use crate::scheduler::Scheduler;
 use crate::skills::SkillRegistry;
 use crate::tools;
 
@@ -17,14 +22,28 @@ pub struct Agent {
     pub mcp: McpManager,
     pub memory: MemoryStore,
     pub skills: SkillRegistry,
+    // Fields used by Tasks 7-9 (scheduling / job closures)
+    #[allow(dead_code)]
+    pub task_store: ScheduledTaskStore,
+    #[allow(dead_code)]
+    pub scheduler: Arc<Scheduler>,
+    #[allow(dead_code)]
+    pub bot: Arc<Bot>,
+    #[allow(dead_code)]
+    pub self_weak: Weak<Agent>,
 }
 
 impl Agent {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         config: Config,
         mcp: McpManager,
         memory: MemoryStore,
         skills: SkillRegistry,
+        task_store: ScheduledTaskStore,
+        scheduler: Arc<Scheduler>,
+        bot: Arc<Bot>,
+        self_weak: Weak<Agent>,
     ) -> Self {
         let llm = LlmClient::new(config.openrouter.clone());
         Self {
@@ -33,6 +52,10 @@ impl Agent {
             mcp,
             memory,
             skills,
+            task_store,
+            scheduler,
+            bot,
+            self_weak,
         }
     }
 
