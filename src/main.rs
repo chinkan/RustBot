@@ -75,23 +75,36 @@ async fn main() -> Result<()> {
     let skills = load_skills_from_dir(&config.skills.directory).await?;
     info!("  Skills: {}", skills.len());
 
-    // Create the agent
-    let agent = Arc::new(Agent::new(
-        config.clone(),
-        mcp_manager,
-        memory.clone(),
-        skills,
-    ));
+    // Create ScheduledTaskStore sharing the existing SQLite connection
+    let task_store = crate::scheduler::reminders::ScheduledTaskStore::new(memory.connection());
 
-    // Initialize background task scheduler
-    let scheduler = Scheduler::new().await?;
+    // Create scheduler as Arc so Agent can hold it and closures can reference it
+    let scheduler = Arc::new(Scheduler::new().await?);
+
+    // Create Bot early so it can be passed to Agent
+    let bot = Arc::new(teloxide::Bot::new(&config.telegram.bot_token));
+
+    // Arc::new_cyclic so Agent can store Weak<Self> for job closure captures (breaks Arc cycle)
+    let agent = Arc::new_cyclic(|weak| {
+        Agent::new(
+            config.clone(),
+            mcp_manager,
+            memory.clone(),
+            skills,
+            task_store.clone(),
+            Arc::clone(&scheduler),
+            Arc::clone(&bot),
+            weak.clone(),
+        )
+    });
+
+    // Register built-in background tasks and start scheduler
     register_builtin_tasks(&scheduler, memory).await?;
     scheduler.start().await?;
     info!("  Scheduler: active");
 
     // Run the Telegram platform
     info!("Bot is starting...");
-    let bot = Arc::new(teloxide::Bot::new(&config.telegram.bot_token));
     platform::telegram::run(
         agent,
         config.telegram.allowed_user_ids.clone(),
