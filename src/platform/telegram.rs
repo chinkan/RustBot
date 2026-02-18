@@ -36,8 +36,12 @@ fn split_message(text: &str, max_len: usize) -> Vec<String> {
 }
 
 /// Run the Telegram bot platform
-pub async fn run(agent: Arc<Agent>, allowed_user_ids: Vec<u64>, bot_token: &str) -> Result<()> {
-    let bot = Bot::new(bot_token);
+pub async fn run(
+    agent: Arc<Agent>,
+    allowed_user_ids: Vec<u64>,
+    bot: Arc<teloxide::Bot>,
+) -> Result<()> {
+    let bot = (*bot).clone();
 
     info!("Starting Telegram platform...");
 
