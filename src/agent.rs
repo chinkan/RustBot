@@ -1,13 +1,27 @@
 use anyhow::Result;
+use std::sync::{Arc, Weak};
 use tracing::info;
+
+use teloxide::Bot;
 
 use crate::config::Config;
 use crate::llm::{ChatMessage, FunctionDefinition, LlmClient, ToolDefinition};
 use crate::mcp::McpManager;
 use crate::memory::MemoryStore;
 use crate::platform::IncomingMessage;
+use crate::scheduler::reminders::ScheduledTaskStore;
+use crate::scheduler::Scheduler;
 use crate::skills::SkillRegistry;
 use crate::tools;
+
+/// A request dispatched from a fire closure to the background job runner.
+pub struct ScheduledJobRequest {
+    pub incoming: IncomingMessage,
+    pub bot: Arc<Bot>,
+    pub task_id: String,
+    pub is_recurring: bool,
+    pub task_store: ScheduledTaskStore,
+}
 
 /// The core agent that processes messages through LLM + tools.
 /// Platform-agnostic — receives IncomingMessage, returns response text.
@@ -17,14 +31,28 @@ pub struct Agent {
     pub mcp: McpManager,
     pub memory: MemoryStore,
     pub skills: SkillRegistry,
+    // Fields used by scheduling / job closures
+    pub task_store: ScheduledTaskStore,
+    pub scheduler: Arc<Scheduler>,
+    pub bot: Arc<Bot>,
+    #[allow(dead_code)]
+    pub self_weak: Weak<Agent>,
+    /// Sender for dispatching scheduled job work to the background runner.
+    pub job_tx: tokio::sync::mpsc::UnboundedSender<ScheduledJobRequest>,
 }
 
 impl Agent {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         config: Config,
         mcp: McpManager,
         memory: MemoryStore,
         skills: SkillRegistry,
+        task_store: ScheduledTaskStore,
+        scheduler: Arc<Scheduler>,
+        bot: Arc<Bot>,
+        self_weak: Weak<Agent>,
+        job_tx: tokio::sync::mpsc::UnboundedSender<ScheduledJobRequest>,
     ) -> Self {
         let llm = LlmClient::new(config.openrouter.clone());
         Self {
@@ -33,6 +61,11 @@ impl Agent {
             mcp,
             memory,
             skills,
+            task_store,
+            scheduler,
+            bot,
+            self_weak,
+            job_tx,
         }
     }
 
@@ -46,6 +79,15 @@ impl Agent {
             prompt.push_str(&skill_context);
         }
 
+        // Append current timestamp and optional location
+        let now = chrono::Utc::now()
+            .format("%Y-%m-%d %H:%M:%S UTC")
+            .to_string();
+        prompt.push_str(&format!("\n\nCurrent date and time: {}", now));
+        if let Some(ref loc) = self.config.location {
+            prompt.push_str(&format!("\nUser location: {}", loc));
+        }
+
         prompt
     }
 
@@ -53,6 +95,7 @@ impl Agent {
     pub async fn process_message(&self, incoming: &IncomingMessage) -> Result<String> {
         let platform = &incoming.platform;
         let user_id = &incoming.user_id;
+        let chat_id = &incoming.chat_id;
 
         // Get or create persistent conversation
         let conversation_id = self
@@ -93,6 +136,7 @@ impl Agent {
         let mut all_tools: Vec<ToolDefinition> = tools::builtin_tool_definitions();
         all_tools.extend(self.mcp.tool_definitions());
         all_tools.extend(self.memory_tool_definitions());
+        all_tools.extend(self.scheduling_tool_definitions());
 
         // Agentic loop — keep calling LLM until we get a non-tool response
         let max_iterations = 10;
@@ -120,7 +164,7 @@ impl Agent {
                                 .unwrap_or(serde_json::Value::Object(serde_json::Map::new()));
 
                         let tool_result = self
-                            .execute_tool(&tool_call.function.name, &arguments)
+                            .execute_tool(&tool_call.function.name, &arguments, user_id, chat_id)
                             .await;
 
                         info!(
@@ -157,6 +201,120 @@ impl Agent {
         Ok("I've reached the maximum number of tool call iterations. Please try rephrasing your request.".to_string())
     }
 
+    /// Re-register all active scheduled tasks from the DB into the scheduler.
+    /// Called once at startup after the agent is constructed.
+    pub async fn restore_scheduled_tasks(&self) {
+        let tasks = match self.task_store.list_all_active().await {
+            Ok(t) => t,
+            Err(e) => {
+                tracing::error!("Failed to load scheduled tasks for restore: {}", e);
+                return;
+            }
+        };
+
+        let count = tasks.len();
+        for task in tasks {
+            // Build the same fire closure as in schedule_task handler
+            let job_tx = self.job_tx.clone();
+            let bot_clone = Arc::clone(&self.bot);
+            let tid = task.id.clone();
+            let uid = task.user_id.clone();
+            let cid = task.chat_id.clone();
+            let prompt_cap = task.prompt.clone();
+            let is_recurring = task.trigger_type == "recurring";
+            let store_clone = self.task_store.clone();
+
+            let fire = move || {
+                let tx = job_tx.clone();
+                let bot = bot_clone.clone();
+                let store = store_clone.clone();
+                let tid = tid.clone();
+                let uid = uid.clone();
+                let cid = cid.clone();
+                let prompt = prompt_cap.clone();
+                let recurring = is_recurring;
+                Box::pin(async move {
+                    let incoming = crate::platform::IncomingMessage {
+                        platform: "telegram".to_string(),
+                        user_id: uid,
+                        chat_id: cid,
+                        user_name: String::new(),
+                        text: prompt,
+                    };
+                    let req = ScheduledJobRequest {
+                        incoming,
+                        bot,
+                        task_id: tid,
+                        is_recurring: recurring,
+                        task_store: store,
+                    };
+                    if let Err(e) = tx.send(req) {
+                        tracing::error!("Failed to dispatch restored scheduled job: {}", e);
+                    }
+                })
+                    as std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>
+            };
+
+            // Register with the right scheduler method based on trigger_type
+            let sched_result = if task.trigger_type == "one_shot" {
+                match parse_one_shot_delay(&task.trigger_value) {
+                    Ok(delay) => {
+                        self.scheduler
+                            .add_one_shot_job(delay, &task.description, fire)
+                            .await
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            "Skipping restore of one-shot task {} (trigger has passed or invalid: {})",
+                            task.id,
+                            e
+                        );
+                        // Mark as completed since its time has passed
+                        let _ = self.task_store.set_status(&task.id, "completed").await;
+                        continue;
+                    }
+                }
+            } else {
+                self.scheduler
+                    .add_cron_job(&task.trigger_value, &task.description, fire)
+                    .await
+            };
+
+            match sched_result {
+                Ok(sched_id) => {
+                    if let Err(e) = self
+                        .task_store
+                        .update_scheduler_job_id(&task.id, &sched_id.to_string())
+                        .await
+                    {
+                        tracing::warn!(
+                            "Failed to update scheduler_job_id for restored task {}: {}",
+                            task.id,
+                            e
+                        );
+                    }
+                    tracing::info!(
+                        "Restored scheduled task: {} ({})",
+                        task.id,
+                        task.description
+                    );
+                }
+                Err(e) => {
+                    tracing::error!(
+                        "Failed to restore scheduled task {} ({}): {}",
+                        task.id,
+                        task.description,
+                        e
+                    );
+                }
+            }
+        }
+
+        if count > 0 {
+            tracing::info!("Restored {} scheduled task(s) from DB", count);
+        }
+    }
+
     /// Clear conversation history for a user
     pub async fn clear_conversation(&self, platform: &str, user_id: &str) -> Result<()> {
         self.memory.clear_conversation(platform, user_id).await
@@ -167,6 +325,7 @@ impl Agent {
         let mut all_tools = tools::builtin_tool_definitions();
         all_tools.extend(self.mcp.tool_definitions());
         all_tools.extend(self.memory_tool_definitions());
+        all_tools.extend(self.scheduling_tool_definitions());
         all_tools
     }
 
@@ -224,8 +383,77 @@ impl Agent {
         ]
     }
 
+    /// Scheduling-related tool definitions exposed to the LLM
+    fn scheduling_tool_definitions(&self) -> Vec<ToolDefinition> {
+        use serde_json::json;
+
+        vec![
+            ToolDefinition {
+                tool_type: "function".to_string(),
+                function: FunctionDefinition {
+                    name: "schedule_task".to_string(),
+                    description: concat!(
+                        "Schedule a task to run at a future time. The prompt will be executed by the AI agent ",
+                        "at the scheduled time (full agentic loop). ",
+                        "For one_shot: trigger_value is ISO 8601 datetime e.g. '2026-03-05T12:00:00'. ",
+                        "For recurring: trigger_value is a 6-field cron expression ",
+                        "(sec min hour day month weekday) e.g. '0 0 9 * * MON' for every Monday at 9am.\n\n",
+                        "TIME INFERENCE RULES — follow these strictly, do not ask unnecessary questions:\n",
+                        "- The current date and time is in your system prompt. Always use it as the reference.\n",
+                        "- Time only, no date (e.g. '5:20', '9:30am'): assume TODAY. If the time is in the past today, use tomorrow.\n",
+                        "- The user's AM/PM intent is clear from context: if it's currently 5:15pm and they say '5:20', ",
+                        "that is obviously 5:20pm today — schedule it immediately without asking.\n",
+                        "- '12:00' or 'noon' = 12:00pm. 'midnight' = 00:00.\n",
+                        "- ONLY ask for AM/PM clarification when it is genuinely ambiguous: ",
+                        "e.g. user says 'Friday 12:00' with no other context (could be noon or midnight).\n",
+                        "- Day of week only (e.g. 'Friday'): assume the NEXT occurrence of that day.\n",
+                        "- Never ask for information you can infer. Prefer acting over asking."
+                    ).to_string(),
+                    parameters: json!({
+                        "type": "object",
+                        "properties": {
+                            "trigger_type":  { "type": "string", "enum": ["one_shot", "recurring"] },
+                            "trigger_value": { "type": "string", "description": "ISO 8601 datetime (one_shot) or 6-field cron expression (recurring)" },
+                            "prompt":        { "type": "string", "description": "The message the agent will process at trigger time" },
+                            "description":   { "type": "string", "description": "Human-readable label for this task" }
+                        },
+                        "required": ["trigger_type", "trigger_value", "prompt", "description"]
+                    }),
+                },
+            },
+            ToolDefinition {
+                tool_type: "function".to_string(),
+                function: FunctionDefinition {
+                    name: "list_scheduled_tasks".to_string(),
+                    description: "List all active scheduled tasks for the current user.".to_string(),
+                    parameters: json!({ "type": "object", "properties": {} }),
+                },
+            },
+            ToolDefinition {
+                tool_type: "function".to_string(),
+                function: FunctionDefinition {
+                    name: "cancel_scheduled_task".to_string(),
+                    description: "Cancel an active scheduled task by its ID.".to_string(),
+                    parameters: json!({
+                        "type": "object",
+                        "properties": {
+                            "task_id": { "type": "string", "description": "The task ID from list_scheduled_tasks" }
+                        },
+                        "required": ["task_id"]
+                    }),
+                },
+            },
+        ]
+    }
+
     /// Execute a tool call by routing to the right handler
-    async fn execute_tool(&self, name: &str, arguments: &serde_json::Value) -> String {
+    async fn execute_tool(
+        &self,
+        name: &str,
+        arguments: &serde_json::Value,
+        user_id: &str,
+        chat_id: &str,
+    ) -> String {
         match name {
             "remember" => {
                 let category = arguments["category"].as_str().unwrap_or("general");
@@ -276,6 +504,183 @@ impl Agent {
                     results.join("\n\n")
                 }
             }
+            "schedule_task" => {
+                let trigger_type = match arguments["trigger_type"].as_str() {
+                    Some(t) => t.to_string(),
+                    None => return "Missing trigger_type".to_string(),
+                };
+                let trigger_value = match arguments["trigger_value"].as_str() {
+                    Some(v) => v.to_string(),
+                    None => return "Missing trigger_value".to_string(),
+                };
+                let prompt_text = match arguments["prompt"].as_str() {
+                    Some(p) => p.to_string(),
+                    None => return "Missing prompt".to_string(),
+                };
+                let description = match arguments["description"].as_str() {
+                    Some(d) => d.to_string(),
+                    None => return "Missing description".to_string(),
+                };
+
+                // Validate trigger and compute delay for one-shot
+                let delay = if trigger_type == "one_shot" {
+                    match parse_one_shot_delay(&trigger_value) {
+                        Ok(d) => Some(d),
+                        Err(e) => return format!("Invalid trigger: {}", e),
+                    }
+                } else if trigger_type == "recurring" {
+                    if let Err(e) = validate_cron_expr(&trigger_value) {
+                        return format!("Invalid cron expression: {}", e);
+                    }
+                    None
+                } else {
+                    return format!(
+                        "Unknown trigger_type '{}'. Use 'one_shot' or 'recurring'.",
+                        trigger_type
+                    );
+                };
+
+                let next_run_at = trigger_value.clone();
+
+                // Persist to DB
+                let task_id = uuid::Uuid::new_v4().to_string();
+                let now = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%S").to_string();
+                let task = crate::scheduler::reminders::ScheduledTask {
+                    id: task_id.clone(),
+                    scheduler_job_id: None,
+                    user_id: user_id.to_string(),
+                    chat_id: chat_id.to_string(),
+                    platform: "telegram".to_string(),
+                    trigger_type: trigger_type.clone(),
+                    trigger_value: trigger_value.clone(),
+                    prompt: prompt_text.clone(),
+                    description: description.clone(),
+                    status: "active".to_string(),
+                    created_at: now,
+                    next_run_at: Some(next_run_at),
+                };
+                if let Err(e) = self.task_store.create(&task).await {
+                    return format!("Failed to save task: {}", e);
+                }
+
+                // Build closure captures — fire closure dispatches to background runner
+                // via a channel so it can be `Send` without requiring process_message to be Send.
+                let job_tx = self.job_tx.clone();
+                let bot_clone = Arc::clone(&self.bot);
+                let store_clone = self.task_store.clone();
+                let tid = task_id.clone();
+                let uid = user_id.to_string();
+                let cid = chat_id.to_string();
+                let prompt_cap = prompt_text.clone();
+                let desc_cap = description.clone();
+                let is_recurring = trigger_type == "recurring";
+                let tv = trigger_value.clone();
+
+                let fire = move || {
+                    let tx = job_tx.clone();
+                    let bot = bot_clone.clone();
+                    let store = store_clone.clone();
+                    let tid = tid.clone();
+                    let uid = uid.clone();
+                    let cid = cid.clone();
+                    let prompt = prompt_cap.clone();
+                    let recurring = is_recurring;
+                    Box::pin(async move {
+                        let incoming = crate::platform::IncomingMessage {
+                            platform: "telegram".to_string(),
+                            user_id: uid,
+                            chat_id: cid,
+                            user_name: String::new(),
+                            text: prompt,
+                        };
+                        let req = ScheduledJobRequest {
+                            incoming,
+                            bot,
+                            task_id: tid,
+                            is_recurring: recurring,
+                            task_store: store,
+                        };
+                        if let Err(e) = tx.send(req) {
+                            tracing::error!("Failed to dispatch scheduled job: {}", e);
+                        }
+                    })
+                        as std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>
+                };
+
+                // Register with scheduler
+                let sched_result = if let Some(d) = delay {
+                    self.scheduler.add_one_shot_job(d, &desc_cap, fire).await
+                } else {
+                    self.scheduler.add_cron_job(&tv, &desc_cap, fire).await
+                };
+
+                match sched_result {
+                    Ok(sched_id) => {
+                        if let Err(e) = self
+                            .task_store
+                            .update_scheduler_job_id(&task_id, &sched_id.to_string())
+                            .await
+                        {
+                            tracing::warn!(
+                                "Failed to persist scheduler_job_id for task {}: {}",
+                                task_id,
+                                e
+                            );
+                        }
+                        format!(
+                            "Task scheduled! ID: {} — {} ({})",
+                            task_id, description, trigger_value
+                        )
+                    }
+                    Err(e) => {
+                        let _ = self.task_store.set_status(&task_id, "failed").await;
+                        format!("Failed to register task with scheduler: {}", e)
+                    }
+                }
+            }
+            "list_scheduled_tasks" => match self.task_store.list_active_for_user(user_id).await {
+                Ok(tasks) if tasks.is_empty() => "No active scheduled tasks.".to_string(),
+                Ok(tasks) => {
+                    let mut out = format!("Active scheduled tasks ({}):\n\n", tasks.len());
+                    for t in tasks {
+                        out.push_str(&format!(
+                            "ID: {}\nDescription: {}\nType: {} | Trigger: {}\nPrompt: {}\n\n",
+                            t.id, t.description, t.trigger_type, t.trigger_value, t.prompt
+                        ));
+                    }
+                    out
+                }
+                Err(e) => format!("Failed to list tasks: {}", e),
+            },
+            "cancel_scheduled_task" => {
+                let task_id = match arguments["task_id"].as_str() {
+                    Some(id) => id.to_string(),
+                    None => return "Missing task_id".to_string(),
+                };
+                // Fetch task to get scheduler_job_id
+                let task = match self.task_store.get_by_id(&task_id).await {
+                    Ok(Some(t)) => t,
+                    Ok(None) => return format!("Task '{}' not found.", task_id),
+                    Err(e) => return format!("Failed to look up task: {}", e),
+                };
+                // Remove from scheduler
+                if let Some(ref sched_id_str) = task.scheduler_job_id {
+                    if let Ok(sched_uuid) = sched_id_str.parse::<uuid::Uuid>() {
+                        if let Err(e) = self.scheduler.remove_job(sched_uuid).await {
+                            tracing::warn!(
+                                "Failed to remove scheduler job for task {}: {}",
+                                task_id,
+                                e
+                            );
+                        }
+                    }
+                }
+                // Mark cancelled in DB
+                match self.task_store.set_status(&task_id, "cancelled").await {
+                    Ok(()) => format!("Task '{}' ({}) cancelled.", task_id, task.description),
+                    Err(e) => format!("Failed to update task status: {}", e),
+                }
+            }
             _ if self.mcp.is_mcp_tool(name) => match self.mcp.call_tool(name, arguments).await {
                 Ok(result) => result,
                 Err(e) => format!("MCP tool error: {}", e),
@@ -293,5 +698,106 @@ impl Agent {
                 }
             }
         }
+    }
+}
+
+/// Parse an ISO 8601 datetime string and return the Duration until it fires.
+/// Returns Err if the string is invalid or the time is in the past.
+fn parse_one_shot_delay(trigger_value: &str) -> anyhow::Result<std::time::Duration> {
+    use chrono::{Local, NaiveDateTime, TimeZone};
+
+    let dt = NaiveDateTime::parse_from_str(trigger_value, "%Y-%m-%dT%H:%M:%S")
+        .map(|naive| Local.from_local_datetime(&naive).single())
+        .ok()
+        .flatten()
+        .map(|dt| dt.with_timezone(&chrono::Utc))
+        .or_else(|| {
+            chrono::DateTime::parse_from_rfc3339(trigger_value)
+                .ok()
+                .map(|dt| dt.with_timezone(&chrono::Utc))
+        })
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "Invalid datetime '{}'. Use ISO 8601 format e.g. '2026-03-05T12:00:00'",
+                trigger_value
+            )
+        })?;
+
+    let now = chrono::Utc::now();
+    if dt <= now {
+        anyhow::bail!(
+            "That time has already passed ({}). Please provide a future datetime.",
+            trigger_value
+        );
+    }
+
+    let duration = (dt - now)
+        .to_std()
+        .map_err(|e| anyhow::anyhow!("Duration conversion failed: {}", e))?;
+    Ok(duration)
+}
+
+/// Validate a 6-field cron expression (sec min hour day month weekday).
+fn validate_cron_expr(expr: &str) -> anyhow::Result<()> {
+    let fields: Vec<&str> = expr.split_whitespace().collect();
+    if fields.len() != 6 {
+        anyhow::bail!(
+            "Cron expression must have 6 fields (sec min hour day month weekday), got {}: '{}'",
+            fields.len(),
+            expr
+        );
+    }
+    Ok(())
+}
+
+/// Split a long response string into chunks of at most `max_len` characters.
+pub fn split_response_chunks(text: &str, max_len: usize) -> Vec<String> {
+    if text.is_empty() {
+        return vec![];
+    }
+    let mut chunks = Vec::new();
+    let mut start = 0;
+    let chars: Vec<char> = text.chars().collect();
+    while start < chars.len() {
+        let end = (start + max_len).min(chars.len());
+        chunks.push(chars[start..end].iter().collect());
+        start = end;
+    }
+    chunks
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_one_shot_delay_valid() {
+        let result = parse_one_shot_delay("2099-12-31T23:59:59");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_parse_one_shot_delay_past_returns_err() {
+        let result = parse_one_shot_delay("2000-01-01T00:00:00");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("already passed"));
+    }
+
+    #[test]
+    fn test_parse_one_shot_delay_invalid_format() {
+        let result = parse_one_shot_delay("next tuesday");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_validate_cron_expr_valid() {
+        assert!(validate_cron_expr("0 0 9 * * MON").is_ok());
+        assert!(validate_cron_expr("0 30 8 * * *").is_ok());
+    }
+
+    #[test]
+    fn test_validate_cron_expr_wrong_field_count() {
+        assert!(validate_cron_expr("0 9 * * *").is_err()); // 5 fields
+        assert!(validate_cron_expr("0 0 9 1 * * MON").is_err()); // 7 fields
     }
 }

@@ -14,6 +14,8 @@ pub struct Config {
     #[serde(default = "default_skills_config")]
     pub skills: SkillsConfig,
     pub embedding: Option<EmbeddingApiConfig>,
+    /// Optional location string injected into the system prompt (e.g. "Tokyo, Japan")
+    pub location: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
