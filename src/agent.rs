@@ -483,10 +483,17 @@ impl Agent {
 
                 match sched_result {
                     Ok(sched_id) => {
-                        let _ = self
+                        if let Err(e) = self
                             .task_store
                             .update_scheduler_job_id(&task_id, &sched_id.to_string())
-                            .await;
+                            .await
+                        {
+                            tracing::warn!(
+                                "Failed to persist scheduler_job_id for task {}: {}",
+                                task_id,
+                                e
+                            );
+                        }
                         format!(
                             "Task scheduled! ID: {} — {} ({})",
                             task_id, description, trigger_value
@@ -517,9 +524,28 @@ impl Agent {
                     Some(id) => id.to_string(),
                     None => return "Missing task_id".to_string(),
                 };
+                // Fetch task to get scheduler_job_id
+                let task = match self.task_store.get_by_id(&task_id).await {
+                    Ok(Some(t)) => t,
+                    Ok(None) => return format!("Task '{}' not found.", task_id),
+                    Err(e) => return format!("Failed to look up task: {}", e),
+                };
+                // Remove from scheduler
+                if let Some(ref sched_id_str) = task.scheduler_job_id {
+                    if let Ok(sched_uuid) = sched_id_str.parse::<uuid::Uuid>() {
+                        if let Err(e) = self.scheduler.remove_job(sched_uuid).await {
+                            tracing::warn!(
+                                "Failed to remove scheduler job for task {}: {}",
+                                task_id,
+                                e
+                            );
+                        }
+                    }
+                }
+                // Mark cancelled in DB
                 match self.task_store.set_status(&task_id, "cancelled").await {
-                    Ok(()) => format!("Task {} cancelled.", task_id),
-                    Err(e) => format!("Failed to cancel task: {}", e),
+                    Ok(()) => format!("Task '{}' ({}) cancelled.", task_id, task.description),
+                    Err(e) => format!("Failed to update task status: {}", e),
                 }
             }
             _ if self.mcp.is_mcp_tool(name) => match self.mcp.call_tool(name, arguments).await {
@@ -593,6 +619,9 @@ fn validate_cron_expr(expr: &str) -> anyhow::Result<()> {
 
 /// Split a long response string into chunks of at most `max_len` characters.
 pub fn split_response_chunks(text: &str, max_len: usize) -> Vec<String> {
+    if text.is_empty() {
+        return vec![];
+    }
     let mut chunks = Vec::new();
     let mut start = 0;
     let chars: Vec<char> = text.chars().collect();
@@ -600,9 +629,6 @@ pub fn split_response_chunks(text: &str, max_len: usize) -> Vec<String> {
         let end = (start + max_len).min(chars.len());
         chunks.push(chars[start..end].iter().collect());
         start = end;
-    }
-    if chunks.is_empty() {
-        chunks.push(String::new());
     }
     chunks
 }
