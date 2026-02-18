@@ -75,26 +75,90 @@ async fn main() -> Result<()> {
     let skills = load_skills_from_dir(&config.skills.directory).await?;
     info!("  Skills: {}", skills.len());
 
-    // Create the agent
-    let agent = Arc::new(Agent::new(
-        config.clone(),
-        mcp_manager,
-        memory.clone(),
-        skills,
-    ));
+    // Create ScheduledTaskStore sharing the existing SQLite connection
+    let task_store = crate::scheduler::reminders::ScheduledTaskStore::new(memory.connection());
 
-    // Initialize background task scheduler
-    let scheduler = Scheduler::new().await?;
+    // Create scheduler as Arc so Agent can hold it and closures can reference it
+    let scheduler = Arc::new(Scheduler::new().await?);
+
+    // Create Bot early so it can be passed to Agent
+    let bot = Arc::new(teloxide::Bot::new(&config.telegram.bot_token));
+
+    // Channel for dispatching scheduled job work from fire closures to background runner
+    let (job_tx, mut job_rx) =
+        tokio::sync::mpsc::unbounded_channel::<crate::agent::ScheduledJobRequest>();
+
+    // Arc::new_cyclic so Agent can store Weak<Self> for job closure captures (breaks Arc cycle)
+    let agent = Arc::new_cyclic(|weak| {
+        Agent::new(
+            config.clone(),
+            mcp_manager,
+            memory.clone(),
+            skills,
+            task_store.clone(),
+            Arc::clone(&scheduler),
+            Arc::clone(&bot),
+            weak.clone(),
+            job_tx,
+        )
+    });
+
+    // Spawn background runner: receives ScheduledJobRequest, calls process_message, sends reply
+    let agent_for_runner = Arc::clone(&agent);
+    tokio::spawn(async move {
+        use teloxide::prelude::*;
+        while let Some(req) = job_rx.recv().await {
+            let agent = Arc::clone(&agent_for_runner);
+            // Mark one-shot as completed (before running, so failure can override)
+            if !req.is_recurring {
+                let _ = req.task_store.set_status(&req.task_id, "completed").await;
+            }
+            let response = match agent.process_message(&req.incoming).await {
+                Ok(r) => r,
+                Err(e) => {
+                    tracing::error!("Scheduled task {} failed: {}", req.task_id, e);
+                    if !req.is_recurring {
+                        let _ = req.task_store.set_status(&req.task_id, "failed").await;
+                    }
+                    continue;
+                }
+            };
+            let chat_id_val: i64 = match req.incoming.chat_id.parse() {
+                Ok(v) => v,
+                Err(_) => {
+                    tracing::error!(
+                        "Unparseable chat_id '{}' for task {}",
+                        req.incoming.chat_id,
+                        req.task_id
+                    );
+                    continue;
+                }
+            };
+            let chat = teloxide::types::ChatId(chat_id_val);
+            for chunk in crate::agent::split_response_chunks(&response, 4000) {
+                if chunk.is_empty() {
+                    continue;
+                }
+                if let Err(e) = req.bot.send_message(chat, &chunk).await {
+                    tracing::error!("Failed to send scheduled response: {}", e);
+                }
+            }
+        }
+    });
+
+    // Register built-in background tasks and start scheduler
     register_builtin_tasks(&scheduler, memory).await?;
     scheduler.start().await?;
     info!("  Scheduler: active");
+    agent.restore_scheduled_tasks().await;
+    info!("  Scheduled tasks: restored from DB");
 
     // Run the Telegram platform
     info!("Bot is starting...");
     platform::telegram::run(
         agent,
         config.telegram.allowed_user_ids.clone(),
-        &config.telegram.bot_token,
+        Arc::clone(&bot),
     )
     .await?;
 

@@ -90,6 +90,12 @@ impl MemoryStore {
         Ok(store)
     }
 
+    /// Expose the underlying connection for modules that share the DB.
+    #[allow(dead_code)]
+    pub fn connection(&self) -> Arc<Mutex<Connection>> {
+        Arc::clone(&self.conn)
+    }
+
     fn run_migrations(conn: &Connection, dims: usize) -> Result<()> {
         conn.execute_batch(
             "
@@ -182,6 +188,25 @@ impl MemoryStore {
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL
             );
+
+            -- Scheduled tasks for user-registered reminders / recurring jobs
+            CREATE TABLE IF NOT EXISTS scheduled_tasks (
+                id               TEXT PRIMARY KEY,
+                scheduler_job_id TEXT,
+                user_id          TEXT NOT NULL,
+                chat_id          TEXT NOT NULL,
+                platform         TEXT NOT NULL,
+                trigger_type     TEXT NOT NULL,
+                trigger_value    TEXT NOT NULL,
+                prompt           TEXT NOT NULL,
+                description      TEXT NOT NULL,
+                status           TEXT NOT NULL DEFAULT 'active',
+                created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+                next_run_at      TEXT
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_user
+                ON scheduled_tasks(user_id, status);
             ",
         )?;
 
@@ -263,5 +288,34 @@ impl MemoryStore {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_scheduled_tasks_table_exists() {
+        let memory = MemoryStore::open_in_memory().unwrap();
+        let conn = memory.connection();
+        let conn = conn.blocking_lock();
+        let exists: bool = conn
+            .query_row(
+                "SELECT count(*) > 0 FROM sqlite_master WHERE type='table' AND name='scheduled_tasks'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(exists);
+    }
+
+    #[test]
+    fn test_connection_accessor_returns_working_connection() {
+        let memory = MemoryStore::open_in_memory().unwrap();
+        let conn = memory.connection();
+        let conn = conn.blocking_lock();
+        let n: i64 = conn.query_row("SELECT 42", [], |row| row.get(0)).unwrap();
+        assert_eq!(n, 42);
     }
 }
