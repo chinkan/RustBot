@@ -84,6 +84,10 @@ async fn main() -> Result<()> {
     // Create Bot early so it can be passed to Agent
     let bot = Arc::new(teloxide::Bot::new(&config.telegram.bot_token));
 
+    // Channel for dispatching scheduled job work from fire closures to background runner
+    let (job_tx, mut job_rx) =
+        tokio::sync::mpsc::unbounded_channel::<crate::agent::ScheduledJobRequest>();
+
     // Arc::new_cyclic so Agent can store Weak<Self> for job closure captures (breaks Arc cycle)
     let agent = Arc::new_cyclic(|weak| {
         Agent::new(
@@ -95,7 +99,38 @@ async fn main() -> Result<()> {
             Arc::clone(&scheduler),
             Arc::clone(&bot),
             weak.clone(),
+            job_tx,
         )
+    });
+
+    // Spawn background runner: receives ScheduledJobRequest, calls process_message, sends reply
+    let agent_for_runner = Arc::clone(&agent);
+    tokio::spawn(async move {
+        use teloxide::prelude::*;
+        while let Some(req) = job_rx.recv().await {
+            let agent = Arc::clone(&agent_for_runner);
+            // Mark one-shot as completed (before running, so failure can override)
+            if !req.is_recurring {
+                let _ = req.task_store.set_status(&req.task_id, "completed").await;
+            }
+            let response = match agent.process_message(&req.incoming).await {
+                Ok(r) => r,
+                Err(e) => {
+                    tracing::error!("Scheduled task {} failed: {}", req.task_id, e);
+                    if !req.is_recurring {
+                        let _ = req.task_store.set_status(&req.task_id, "failed").await;
+                    }
+                    continue;
+                }
+            };
+            let chat_id_val: i64 = req.incoming.chat_id.parse().unwrap_or(0);
+            let chat = teloxide::types::ChatId(chat_id_val);
+            for chunk in crate::agent::split_response_chunks(&response, 4000) {
+                if let Err(e) = req.bot.send_message(chat, chunk).await {
+                    tracing::error!("Failed to send scheduled response: {}", e);
+                }
+            }
+        }
     });
 
     // Register built-in background tasks and start scheduler
