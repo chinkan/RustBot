@@ -91,6 +91,7 @@ impl MemoryStore {
     }
 
     /// Expose the underlying connection for modules that share the DB.
+    #[allow(dead_code)]
     pub fn connection(&self) -> Arc<Mutex<Connection>> {
         Arc::clone(&self.conn)
     }
@@ -200,7 +201,7 @@ impl MemoryStore {
                 prompt           TEXT NOT NULL,
                 description      TEXT NOT NULL,
                 status           TEXT NOT NULL DEFAULT 'active',
-                created_at       TEXT NOT NULL,
+                created_at       TEXT NOT NULL DEFAULT (datetime('now')),
                 next_run_at      TEXT
             );
 
@@ -314,9 +315,7 @@ mod tests {
         let memory = MemoryStore::open_in_memory().unwrap();
         let conn = memory.connection();
         let conn = conn.blocking_lock();
-        let n: i64 = conn
-            .query_row("SELECT 42", [], |row| row.get(0))
-            .unwrap();
+        let n: i64 = conn.query_row("SELECT 42", [], |row| row.get(0)).unwrap();
         assert_eq!(n, 42);
     }
 }
