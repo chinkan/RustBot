@@ -284,7 +284,17 @@ function collectStep(n) {
 
 // ── TOML generation ────────────────────────────────────────────────────────────
 function esc(s) {
+  // Escapes for TOML string values only (backslash and double-quote)
   return String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+function escHtml(s) {
+  // Escapes for HTML attributes and text content
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 function generateToml() {
@@ -305,7 +315,6 @@ function generateToml() {
     'base_url = "https://openrouter.ai/api/v1"\n' +
     'max_tokens = ' + (parseInt(state.max_tokens, 10) || 4096) + '\n' +
     'system_prompt = """' + sysprompt + '"""\n' +
-    locLine + '\n' +
     '\n' +
     '[sandbox]\n' +
     'allowed_directory = "' + esc(state.sandbox_dir) + '"\n' +
@@ -314,7 +323,9 @@ function generateToml() {
     'database_path = "' + esc(state.db_path) + '"\n' +
     '\n' +
     '[skills]\n' +
-    'directory = "skills"\n';
+    'directory = "skills"\n' +
+    '\n' +
+    locLine + '\n';
 
   for (const [name, sel] of Object.entries(state.mcp_selections)) {
     if (!sel.selected) continue;
@@ -451,12 +462,12 @@ function buildSteps() {
   <h2>Telegram</h2>
   <div class="field">
     <label>Bot Token <span class="hint">— from @BotFather</span></label>
-    <input type="password" id="f-telegram-token" placeholder="1234567890:ABC-...">
+    <input type="password" id="f-telegram-token" placeholder="1234567890:ABC-..." value="${escHtml(state.telegram_token)}">
     <div class="error-msg" id="f-telegram-token-err">Bot token is required.</div>
   </div>
   <div class="field">
     <label>Allowed User IDs <span class="hint">— comma-separated, from @userinfobot</span></label>
-    <input type="text" id="f-allowed-ids" placeholder="123456789, 987654321">
+    <input type="text" id="f-allowed-ids" placeholder="123456789, 987654321" value="${escHtml(state.allowed_user_ids)}">
     <div class="error-msg" id="f-allowed-ids-err">At least one user ID is required.</div>
   </div>
 </div>`;
@@ -466,25 +477,25 @@ function buildSteps() {
   <h2>OpenRouter</h2>
   <div class="field">
     <label>API Key <span class="hint">— openrouter.ai/keys</span></label>
-    <input type="password" id="f-openrouter-key" placeholder="sk-or-...">
+    <input type="password" id="f-openrouter-key" placeholder="sk-or-..." value="${escHtml(state.openrouter_key)}">
     <div class="error-msg" id="f-openrouter-key-err">API key is required.</div>
   </div>
   <div class="field">
     <label>Model <span class="hint">— openrouter.ai/models</span></label>
-    <input type="text" id="f-model" value="qwen/qwen3-235b-a22b">
+    <input type="text" id="f-model" value="${escHtml(state.model || 'qwen/qwen3-235b-a22b')}">
     <div class="error-msg" id="f-model-err">Model is required.</div>
   </div>
   <div class="field">
     <label>Max Tokens</label>
-    <input type="text" id="f-max-tokens" value="4096">
+    <input type="text" id="f-max-tokens" value="${escHtml(state.max_tokens || '4096')}">
   </div>
   <div class="field">
     <label>System Prompt</label>
-    <textarea id="f-system-prompt">You are a helpful AI assistant with access to tools. Use the available tools to help the user with their tasks. When using file or terminal tools, operate only within the allowed sandbox directory. Be concise and helpful.</textarea>
+    <textarea id="f-system-prompt">${escHtml(state.system_prompt)}</textarea>
   </div>
   <div class="field">
     <label>Location <span class="hint">— optional, gives the AI your timezone/region</span></label>
-    <input type="text" id="f-location" placeholder="Tokyo, Japan">
+    <input type="text" id="f-location" placeholder="Tokyo, Japan" value="${escHtml(state.location)}">
   </div>
 </div>`;
 
@@ -493,11 +504,11 @@ function buildSteps() {
   <h2>Sandbox &amp; Memory</h2>
   <div class="field">
     <label>Sandbox Directory <span class="hint">— file/command operations are restricted here</span></label>
-    <input type="text" id="f-sandbox-dir" value="/tmp/rustbot-sandbox">
+    <input type="text" id="f-sandbox-dir" value="${escHtml(state.sandbox_dir || '/tmp/rustbot-sandbox')}">
   </div>
   <div class="field">
     <label>Memory Database Path <span class="hint">— SQLite file for persistent memory</span></label>
-    <input type="text" id="f-db-path" value="rustbot.db">
+    <input type="text" id="f-db-path" value="${escHtml(state.db_path || 'rustbot.db')}">
   </div>
 </div>`;
 
@@ -515,24 +526,29 @@ function buildSteps() {
     html5 += `<div class="mcp-category"><h3>${cat}</h3>`;
     for (const tool of MCP_CATALOG.filter(t => t.category === cat)) {
       const cmd = tool.runner + ' ' + tool.args.join(' ');
-      const envHtml = tool.envVars.map(k =>
-        `<div class="env-row">
+      const envHtml = tool.envVars.map(k => {
+        const existingVal = state.mcp_selections[tool.name]?.env?.[k] || '';
+        return `<div class="env-row">
           <div class="mcp-env-label">${k}</div>
-          <input type="text" placeholder="${k}" oninput="setEnv('${tool.name}','${k}',this.value)">
-        </div>`
-      ).join('');
+          <input type="text" placeholder="${k}" value="${escHtml(existingVal)}"
+                 oninput="setEnv('${tool.name}','${k}',this.value)">
+        </div>`;
+      }).join('');
       const linkHtml = tool.link
         ? `<a class="mcp-tool-link" href="${tool.link}" target="_blank" rel="noopener" onclick="event.stopPropagation()">docs ↗</a>`
         : '';
-      html5 += `<div class="mcp-tool" id="mcp-wrap-${tool.name}" onclick="toggleTool('${tool.name}', event)">
+      html5 += `<div class="mcp-tool ${state.mcp_selections[tool.name]?.selected ? 'selected' : ''}"
+     id="mcp-wrap-${tool.name}" onclick="toggleTool('${tool.name}', event)">
   <div class="mcp-tool-header">
-    <input type="checkbox" id="mcp-cb-${tool.name}" onclick="event.stopPropagation();toggleTool('${tool.name}',event)">
+    <input type="checkbox" id="mcp-cb-${tool.name}"
+      ${state.mcp_selections[tool.name]?.selected ? 'checked' : ''}
+      onclick="event.stopPropagation();toggleTool('${tool.name}',event)">
     <span class="mcp-tool-name">${tool.name}</span>
     ${linkHtml}
   </div>
   <div class="mcp-tool-desc">${tool.desc}</div>
   <div class="mcp-tool-cmd">${cmd}</div>
-  ${tool.envVars.length ? `<div class="mcp-env-fields" id="mcp-env-${tool.name}">${envHtml}</div>` : ''}
+  ${tool.envVars.length ? `<div class="mcp-env-fields ${state.mcp_selections[tool.name]?.selected ? 'visible' : ''}" id="mcp-env-${tool.name}">${envHtml}</div>` : ''}
 </div>`;
     }
     html5 += `</div>`;
