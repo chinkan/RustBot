@@ -208,7 +208,6 @@ system_prompt = """You are a helpful AI assistant with access to tools. \
 Use the available tools to help the user with their tasks. \
 When using file or terminal tools, operate only within the allowed sandbox directory. \
 Be concise and helpful."""
-{loc_line}
 
 [sandbox]
 allowed_directory = "{sandbox}"
@@ -218,6 +217,8 @@ database_path = "{db_path}"
 
 [skills]
 directory = "skills"
+
+{loc_line}
 "#
     )
 }
@@ -552,6 +553,10 @@ allowed_directory = "/tmp"
     fn test_location_included_when_set() {
         let out = cfg("t", "1", "k", "m", "/tmp", "db.db", "Tokyo, Japan");
         assert!(out.contains(r#"location = "Tokyo, Japan""#));
+        // location must be at top level — after [skills], not inside [openrouter]
+        let skills_pos = out.find("[skills]").expect("[skills] not found in output");
+        let location_pos = out.find(r#"location = "Tokyo, Japan""#).expect("location not found");
+        assert!(location_pos > skills_pos, "location must appear after [skills] section");
     }
 
     #[test]
@@ -559,6 +564,10 @@ allowed_directory = "/tmp"
         let out = cfg("t", "1", "k", "m", "/tmp", "db.db", "");
         assert!(out.contains("# location ="));
         assert!(!out.contains("\nlocation = "));
+        // commented location must also be at top level
+        let skills_pos = out.find("[skills]").expect("[skills] not found");
+        let location_pos = out.find("# location =").expect("# location not found");
+        assert!(location_pos > skills_pos, "location must appear after [skills] section");
     }
 
     #[test]
