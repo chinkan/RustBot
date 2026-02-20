@@ -275,7 +275,7 @@ fn run_cli(project_root: &Path) -> Result<()> {
         .with_context(|| format!("Could not write {}", config_path.display()))?;
 
     println!("\n✓  config.toml saved to {}", config_path.display());
-    println!("   Run the bot with:  cargo run");
+    println!("   Run the bot with:  cargo run --bin rustbot");
     Ok(())
 }
 
