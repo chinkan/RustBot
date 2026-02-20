@@ -17,28 +17,24 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            artifact_name: rustfox
-            asset_name: rustfox-linux-x86_64
-            setup_artifact_name: setup
-            setup_asset_name: setup-linux-x86_64
+            rustfox_bin: rustfox
+            setup_bin: setup
+            archive_name: rustfox-linux-x86_64.tar.gz
           - os: macos-latest
             target: x86_64-apple-darwin
-            artifact_name: rustfox
-            asset_name: rustfox-macos-x86_64
-            setup_artifact_name: setup
-            setup_asset_name: setup-macos-x86_64
+            rustfox_bin: rustfox
+            setup_bin: setup
+            archive_name: rustfox-macos-x86_64.tar.gz
           - os: macos-latest
             target: aarch64-apple-darwin
-            artifact_name: rustfox
-            asset_name: rustfox-macos-aarch64
-            setup_artifact_name: setup
-            setup_asset_name: setup-macos-aarch64
+            rustfox_bin: rustfox
+            setup_bin: setup
+            archive_name: rustfox-macos-aarch64.tar.gz
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            artifact_name: rustfox.exe
-            asset_name: rustfox-windows-x86_64.exe
-            setup_artifact_name: setup.exe
-            setup_asset_name: setup-windows-x86_64.exe
+            rustfox_bin: rustfox.exe
+            setup_bin: setup.exe
+            archive_name: rustfox-windows-x86_64.zip
 
     steps:
       - uses: actions/checkout@v4
@@ -54,48 +50,34 @@ jobs:
       - name: Build
         run: cargo build --release --target ${{ matrix.target }}
 
-      - name: Rename binary
+      - name: Stage release files
         shell: bash
-        run: mv target/${{ matrix.target }}/release/${{ matrix.artifact_name }} target/${{ matrix.target }}/release/${{ matrix.asset_name }}
+        run: |
+          mkdir staging
+          cp target/${{ matrix.target }}/release/${{ matrix.rustfox_bin }} staging/
+          cp target/${{ matrix.target }}/release/${{ matrix.setup_bin }} staging/
+          cp config.example.toml staging/
+          cp -r skills staging/
+
+      - name: Create archive (Unix)
+        if: runner.os != 'Windows'
+        run: tar -czf ${{ matrix.archive_name }} -C staging .
+
+      - name: Create archive (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path staging\* -DestinationPath ${{ matrix.archive_name }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.asset_name }}
-          path: target/${{ matrix.target }}/release/${{ matrix.asset_name }}
-          if-no-files-found: error
-
-      - name: Rename setup binary
-        shell: bash
-        run: mv target/${{ matrix.target }}/release/${{ matrix.setup_artifact_name }} target/${{ matrix.target }}/release/${{ matrix.setup_asset_name }}
-
-      - name: Upload setup artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.setup_asset_name }}
-          path: target/${{ matrix.target }}/release/${{ matrix.setup_asset_name }}
-          if-no-files-found: error
-
-  package-extras:
-    name: Package extras
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Create extras archive
-        run: tar -czf rustfox-extras.tar.gz config.example.toml setup.sh skills/
-
-      - name: Upload extras artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: rustfox-extras
-          path: rustfox-extras.tar.gz
+          name: ${{ matrix.archive_name }}
+          path: ${{ matrix.archive_name }}
           if-no-files-found: error
 
   release:
     name: Create Release
-    needs: [build, package-extras]
+    needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: write
