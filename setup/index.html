@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RustBot Setup</title>
+<title>RustFox Setup</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -228,8 +228,8 @@ const state = {
   max_tokens: '4096',
   system_prompt: 'You are a helpful AI assistant with access to tools. Use the available tools to help the user with their tasks. When using file or terminal tools, operate only within the allowed sandbox directory. Be concise and helpful.',
   location: '',
-  sandbox_dir: '/tmp/rustbot-sandbox',
-  db_path: 'rustbot.db',
+  sandbox_dir: '/tmp/rustfox-sandbox',
+  db_path: 'rustfox.db',
   mcp_selections: {},
   custom_mcp_servers: [],  // populated from existing config's non-catalog MCP servers
   _loaded: false,          // true when an existing config was successfully loaded
@@ -314,8 +314,8 @@ function collectStep(n) {
     state.location = document.getElementById('f-location').value.trim();
   }
   if (n === 4) {
-    state.sandbox_dir = document.getElementById('f-sandbox-dir').value.trim() || '/tmp/rustbot-sandbox';
-    state.db_path = document.getElementById('f-db-path').value.trim() || 'rustbot.db';
+    state.sandbox_dir = document.getElementById('f-sandbox-dir').value.trim() || '/tmp/rustfox-sandbox';
+    state.db_path = document.getElementById('f-db-path').value.trim() || 'rustfox.db';
   }
 }
 
@@ -572,7 +572,7 @@ function buildSteps() {
 
   // Step 1: Welcome
   c.innerHTML += `<div class="step" id="step-1">
-  <h1>Welcome to RustBot</h1>
+  <h1>Welcome to RustFox</h1>
   <p class="subtitle">
     Your personal AI assistant on Telegram, powered by OpenRouter LLMs and extensible via MCP tools.<br><br>
     This wizard creates your <code>config.toml</code> in about 2 minutes.
@@ -630,11 +630,11 @@ function buildSteps() {
   <h2>Sandbox &amp; Memory</h2>
   <div class="field">
     <label>Sandbox Directory <span class="hint">— file/command operations are restricted here</span></label>
-    <input type="text" id="f-sandbox-dir" value="${escHtml(state.sandbox_dir || '/tmp/rustbot-sandbox')}">
+    <input type="text" id="f-sandbox-dir" value="${escHtml(state.sandbox_dir || '/tmp/rustfox-sandbox')}">
   </div>
   <div class="field">
     <label>Memory Database Path <span class="hint">— SQLite file for persistent memory</span></label>
-    <input type="text" id="f-db-path" value="${escHtml(state.db_path || 'rustbot.db')}">
+    <input type="text" id="f-db-path" value="${escHtml(state.db_path || 'rustfox.db')}">
   </div>
 </div>`;
 
@@ -643,7 +643,7 @@ function buildSteps() {
   let html5 = `<div class="step" id="step-5">
   <h2>MCP Tools <span class="hint" style="font-size:0.85rem;font-weight:400">— all optional, can be added later</span></h2>
   <div class="mcp-prereqs">
-    <strong>Prerequisites</strong> — MCP servers run as child processes outside RustBot.<br>
+    <strong>Prerequisites</strong> — MCP servers run as child processes outside RustFox.<br>
     Tools marked <code>uvx</code> need <strong><a href="https://docs.astral.sh/uv/getting-started/installation/" target="_blank" rel="noopener">uv</a></strong> installed &nbsp;(<code>curl -LsSf https://astral.sh/uv/install.sh | sh</code>).<br>
     Tools marked <code>npx</code> need <strong><a href="https://nodejs.org/" target="_blank" rel="noopener">Node.js</a></strong> installed &nbsp;(<a href="https://nodejs.org/en/download/" target="_blank" rel="noopener">nodejs.org/en/download</a>).<br>
     Click <em>docs ↗</em> on any tool to read its full documentation before enabling it.
@@ -735,9 +735,9 @@ function buildSteps() {
     <code>config.toml</code> has been saved to the project root.<br>
     Start your bot with:
   </p>
-  <pre style="margin-bottom:2rem;text-align:center;font-size:0.95rem;color:#e2e8f0">cargo run --bin rustbot</pre>
+  <pre style="margin-bottom:2rem;text-align:center;font-size:0.95rem;color:#e2e8f0">cargo run --bin rustfox</pre>
   <p style="color:#718096;font-size:0.85rem;margin-bottom:1.25rem;text-align:center">
-    If you find RustBot useful, consider supporting the project:
+    If you find RustFox useful, consider supporting the project:
   </p>
   <div style="display:flex;flex-direction:column;gap:0.875rem;align-items:center">
     <a href="https://buymeacoffee.com/chinkan.ai" target="_blank" rel="noopener">

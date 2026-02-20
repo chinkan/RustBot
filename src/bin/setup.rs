@@ -1,4 +1,4 @@
-//! RustBot setup wizard.
+//! RustFox setup wizard.
 //!
 //! Without flags: starts a local Axum HTTP server on port 8719 and opens the
 //! browser-based setup wizard.  On form submission the wizard POSTs the
@@ -142,7 +142,7 @@ async fn save_config(
 
     let path = state.config_path.to_string_lossy().to_string();
     println!("\n✓  config.toml saved to {path}");
-    println!("   Run the bot with:  cargo run --bin rustbot\n");
+    println!("   Run the bot with:  cargo run --bin rustfox\n");
 
     // Signal main to shut down after the response has been sent.
     let tx = state.shutdown_tx.lock().await.take();
@@ -234,7 +234,7 @@ directory = "skills"
 fn run_cli(project_root: &Path) -> Result<()> {
     use std::io::{self, Write};
 
-    println!("=== RustBot CLI Setup ===\n");
+    println!("=== RustFox CLI Setup ===\n");
 
     let read_line = |prompt: &str| -> Result<String> {
         print!("{prompt}");
@@ -260,10 +260,10 @@ fn run_cli(project_root: &Path) -> Result<()> {
         "qwen/qwen3-235b-a22b",
     );
     let sandbox = or_default(
-        read_line("Sandbox directory [/tmp/rustbot-sandbox]: ")?,
-        "/tmp/rustbot-sandbox",
+        read_line("Sandbox directory [/tmp/rustfox-sandbox]: ")?,
+        "/tmp/rustfox-sandbox",
     );
-    let db_path = or_default(read_line("Memory DB path [rustbot.db]: ")?, "rustbot.db");
+    let db_path = or_default(read_line("Memory DB path [rustfox.db]: ")?, "rustfox.db");
     let location = read_line("Your location (optional, e.g. Tokyo, Japan): ")?;
 
     let config = format_config(&ConfigParams {
@@ -282,7 +282,7 @@ fn run_cli(project_root: &Path) -> Result<()> {
         .with_context(|| format!("Could not write {}", config_path.display()))?;
 
     println!("\n✓  config.toml saved to {}", config_path.display());
-    println!("   Run the bot with:  cargo run --bin rustbot");
+    println!("   Run the bot with:  cargo run --bin rustfox");
     Ok(())
 }
 
@@ -292,9 +292,9 @@ fn run_cli(project_root: &Path) -> Result<()> {
 async fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
 
-    // Resolve project root: prefer RUSTBOT_ROOT env, fall back to cwd.
+    // Resolve project root: prefer RUSTFOX_ROOT env, fall back to cwd.
     let project_root =
-        PathBuf::from(std::env::var("RUSTBOT_ROOT").unwrap_or_else(|_| ".".to_string()));
+        PathBuf::from(std::env::var("RUSTFOX_ROOT").unwrap_or_else(|_| ".".to_string()));
 
     if args.iter().any(|a| a == "--cli") {
         return run_cli(&project_root);
@@ -321,7 +321,7 @@ async fn main() -> Result<()> {
         .await
         .with_context(|| format!("Failed to bind to {addr}"))?;
 
-    println!("RustBot setup wizard → http://localhost:{port}");
+    println!("RustFox setup wizard → http://localhost:{port}");
     println!("Press Ctrl-C to exit without saving.\n");
 
     // Open the browser after a short delay.

@@ -176,7 +176,7 @@ Write the complete new README with these sections (in order):
 Full content:
 
 ```markdown
-# RustBot — Telegram AI Assistant
+# RustFox — Telegram AI Assistant
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Buy Me a Coffee](https://img.shields.io/badge/buy%20me%20a%20coffee-☕-yellow)](https://buymeacoffee.com/chinkan.ai)
@@ -240,7 +240,7 @@ See [`config.example.toml`](config.example.toml) for all options.
 | `openrouter.api_key` | OpenRouter API key |
 | `openrouter.model` | LLM model ID (default: `moonshotai/kimi-k2.5`) |
 | `sandbox.allowed_directory` | Directory for file/command operations |
-| `memory.database_path` | SQLite DB path (default: `rustbot.db`) |
+| `memory.database_path` | SQLite DB path (default: `rustfox.db`) |
 | `embedding` (optional) | Vector search API config (default model: `qwen/qwen3-embedding-8b`) |
 | `skills.directory` | Folder of bot skill files (default: `skills/`) |
 | `mcp_servers` | List of MCP servers to connect |
@@ -337,7 +337,7 @@ Feel free to:
 
 ## Support
 
-If you find RustBot useful, consider supporting the project:
+If you find RustFox useful, consider supporting the project:
 
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-☕-yellow?style=for-the-badge&logo=buy-me-a-coffee)](https://buymeacoffee.com/chinkan.ai)
 

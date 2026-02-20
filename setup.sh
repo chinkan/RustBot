@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# RustBot setup wizard entry point.
+# RustFox setup wizard entry point.
 #
 # Usage:
 #   ./setup.sh          # Opens browser-based wizard on http://localhost:8719

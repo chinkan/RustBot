@@ -102,7 +102,7 @@ fn default_system_prompt() -> String {
 }
 
 fn default_db_path() -> PathBuf {
-    PathBuf::from("rustbot.db")
+    PathBuf::from("rustfox.db")
 }
 
 fn default_skills_dir() -> PathBuf {

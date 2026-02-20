@@ -1,4 +1,4 @@
-# RustBot Configuration
+# RustFox Configuration
 
 [telegram]
 # Get your bot token from @BotFather on Telegram
@@ -25,12 +25,12 @@ Be concise and helpful."""
 [sandbox]
 # The directory where file operations and command execution are allowed
 # The bot cannot access files outside this directory
-allowed_directory = "/tmp/rustbot-sandbox"
+allowed_directory = "/tmp/rustfox-sandbox"
 
 [memory]
 # Path to the SQLite database file for persistent memory
 # Stores conversations, knowledge base, and vector embeddings
-database_path = "rustbot.db"
+database_path = "rustfox.db"
 
 [skills]
 # Directory containing skill markdown files
@@ -66,7 +66,7 @@ directory = "skills"
 # [[mcp_servers]]
 # name = "filesystem"
 # command = "npx"
-# args = ["-y", "@modelcontextprotocol/server-filesystem", "/tmp/rustbot-sandbox"]
+# args = ["-y", "@modelcontextprotocol/server-filesystem", "/tmp/rustfox-sandbox"]
 
 # Example: Web search MCP server with environment variables
 # [[mcp_servers]]

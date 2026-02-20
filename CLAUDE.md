@@ -1,8 +1,8 @@
-# CLAUDE.md - RustBot Development Guide
+# CLAUDE.md - RustFox Development Guide
 
 ## Project Overview
 
-RustBot is a Telegram AI assistant written in Rust. It connects to Telegram as a bot, uses OpenRouter LLM for inference (default model: `qwen/qwen3-235b-a22b`), provides built-in sandboxed tools (file I/O, command execution), and supports MCP (Model Context Protocol) servers for extensible tool integration. It implements an agentic loop that iterates tool calls until a final text response is produced (max 10 iterations).
+RustFox is a Telegram AI assistant written in Rust. It connects to Telegram as a bot, uses OpenRouter LLM for inference (default model: `qwen/qwen3-235b-a22b`), provides built-in sandboxed tools (file I/O, command execution), and supports MCP (Model Context Protocol) servers for extensible tool integration. It implements an agentic loop that iterates tool calls until a final text response is produced (max 10 iterations).
 
 ## Build & Run
 
@@ -74,7 +74,7 @@ src/
 - **Edition**: 2021
 - **Async runtime**: Tokio with `full` features
 - **Error handling**: `anyhow::Result` throughout, with `.context()` / `.with_context()` for error messages
-- **Logging**: `tracing` crate with `tracing-subscriber` (env filter: `RUST_LOG`, default `info,rustbot=debug`)
+- **Logging**: `tracing` crate with `tracing-subscriber` (env filter: `RUST_LOG`, default `info,rustfox=debug`)
 - **Serialization**: `serde` derive macros with `#[serde(skip_serializing_if = "Option::is_none")]` for optional fields
 - **Shared state**: `Arc<AppState>` passed via teloxide's dependency injection (`dptree::deps!`)
 - **Concurrency**: `tokio::sync::Mutex` for per-user conversation map (not `std::sync::Mutex`)
