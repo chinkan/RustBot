@@ -72,16 +72,24 @@ directory = "skills"
 # command = "npx"
 # args = ["-y", "@modelcontextprotocol/server-filesystem", "/tmp/rustfox-sandbox"]
 
-# Example: Google Workspace MCP server
+# Example: Google Workspace MCP server (Gmail, Calendar, Drive, Docs)
 # Note: use --from because the package name differs from the executable name
+#
+# OAuth setup — https://console.cloud.google.com/apis/credentials
+#   1. Create/select a project → enable Gmail API, Google Calendar API, Google Drive API
+#   2. APIs & Services → OAuth consent screen → External → add your email as a test user
+#   3. Credentials → Create OAuth Client ID → Web application
+#      Add Authorised redirect URI: http://localhost:8080
+#      Download credentials → copy Client ID and Client Secret below
+#
 # [[mcp_servers]]
 # name = "google-workspace"
 # command = "uvx"
 # args = ["--from", "google-workspace-mcp", "google-workspace-worker"]
 # [mcp_servers.env]
-# GOOGLE_CLIENT_ID = "your-client-id"
+# GOOGLE_CLIENT_ID = "your-client-id.apps.googleusercontent.com"
 # GOOGLE_CLIENT_SECRET = "your-client-secret"
-# GOOGLE_REDIRECT_URI = "your-redirect-uri"
+# GOOGLE_REDIRECT_URI = "http://localhost:8080"
 
 # Example: Web search MCP server with environment variables
 # [[mcp_servers]]

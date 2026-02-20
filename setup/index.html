@@ -122,6 +122,21 @@
     padding: 0.1rem 0.3rem;
   }
   .mcp-tool-link:hover { color: #f6851b; }
+  /* Per-tool setup guide */
+  .mcp-setup-guide {
+    margin-left: 1.75rem;
+    margin-top: 0.6rem;
+    background: #131825;
+    border: 1px solid #2d3748;
+    border-radius: 6px;
+    padding: 0.55rem 0.75rem;
+    font-size: 0.78rem;
+    color: #718096;
+    line-height: 1.75;
+  }
+  .mcp-setup-guide strong { color: #cbd5e0; }
+  .mcp-setup-guide a { color: #f6851b; text-decoration: none; }
+  .mcp-setup-guide a:hover { text-decoration: underline; }
   /* Find more footer */
   .mcp-more {
     margin-top: 1.25rem;
@@ -204,7 +219,7 @@ const MCP_CATALOG = [
   { name:'brave-search',     category:'Browser & Web',      desc:'Real-time web search via Brave',               runner:'npx', args:['-y','@brave/brave-search-mcp-server'],          envVars:['BRAVE_API_KEY'],                            link:'https://www.npmjs.com/package/@brave/brave-search-mcp-server' },
   { name:'firecrawl',        category:'Browser & Web',      desc:'URL to clean Markdown scraping',               runner:'npx', args:['-y','firecrawl-mcp'],                            envVars:['FIRECRAWL_API_KEY'],                        link:'https://www.npmjs.com/package/firecrawl-mcp' },
   { name:'fetch',            category:'Browser & Web',      desc:'Lightweight page fetching',                    runner:'uvx', args:['mcp-server-fetch'],                              envVars:[],                                           link:'https://pypi.org/project/mcp-server-fetch' },
-  { name:'google-workspace', category:'Productivity',       desc:'Gmail, Calendar, Drive, Docs',                 runner:'uvx', args:['--from','google-workspace-mcp','google-workspace-worker'], envVars:['GOOGLE_CLIENT_ID','GOOGLE_CLIENT_SECRET'],  link:'https://pypi.org/project/google-workspace-mcp' },
+  { name:'google-workspace', category:'Productivity',       desc:'Gmail, Calendar, Drive, Docs',                 runner:'uvx', args:['--from','google-workspace-mcp','google-workspace-worker'], envVars:['GOOGLE_CLIENT_ID','GOOGLE_CLIENT_SECRET','GOOGLE_REDIRECT_URI'], envDefaults:{'GOOGLE_REDIRECT_URI':'http://localhost:8080'}, setupGuide:'<strong>OAuth setup — 3 steps:</strong><br>1. <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">Google Cloud Console</a> → Create/select project → enable Gmail, Calendar &amp; Drive APIs<br>2. <em>OAuth consent screen</em> → External → add your email as a test user<br>3. <em>Credentials</em> → OAuth Client ID → <strong>Web application</strong> → add Authorised redirect URI: <code>http://localhost:8080</code><br>Paste the Client ID &amp; Secret below — Redirect URI is pre-filled.',  link:'https://pypi.org/project/google-workspace-mcp' },
   { name:'notion',           category:'Productivity',       desc:'Read/write Notion workspace',                  runner:'npx', args:['-y','@notionhq/notion-mcp-server'],              envVars:['NOTION_API_KEY'],                           link:'https://www.npmjs.com/package/@notionhq/notion-mcp-server' },
   { name:'obsidian',         category:'Productivity',       desc:'Local Obsidian vault access',                  runner:'npx', args:['-y','obsidian-mcp'],                             envVars:[],                                           link:'https://www.npmjs.com/package/obsidian-mcp' },
   { name:'slack',            category:'Communication',      desc:'Read channels, post Slack messages',           runner:'npx', args:['-y','@modelcontextprotocol/server-slack'],         envVars:['SLACK_BOT_TOKEN'],                          link:'https://www.npmjs.com/package/@modelcontextprotocol/server-slack' },
@@ -377,7 +392,7 @@ function generateToml() {
     if (tool.envVars.length > 0) {
       toml += '[mcp_servers.env]\n';
       for (const k of tool.envVars) {
-        toml += k + ' = "' + esc((sel.env && sel.env[k]) || '') + '"\n';
+        toml += k + ' = "' + esc((sel.env && sel.env[k]) || (tool.envDefaults && tool.envDefaults[k]) || '') + '"\n';
       }
     }
   }
@@ -654,13 +669,15 @@ function buildSteps() {
     for (const tool of MCP_CATALOG.filter(t => t.category === cat)) {
       const cmd = tool.runner + ' ' + tool.args.join(' ');
       const envHtml = tool.envVars.map(k => {
-        const existingVal = state.mcp_selections[tool.name]?.env?.[k] || '';
+        const existingVal = state.mcp_selections[tool.name]?.env?.[k] || (tool.envDefaults && tool.envDefaults[k]) || '';
         return `<div class="env-row" onclick="event.stopPropagation()">
           <div class="mcp-env-label">${k}</div>
           <input type="text" placeholder="${k}" value="${escHtml(existingVal)}"
                  oninput="setEnv('${tool.name}','${k}',this.value)">
         </div>`;
       }).join('');
+      const guideHtml = tool.setupGuide ? `<div class="mcp-setup-guide" onclick="event.stopPropagation()">${tool.setupGuide}</div>` : '';
+      const hasExtras = tool.envVars.length || tool.setupGuide;
       const linkHtml = tool.link
         ? `<a class="mcp-tool-link" href="${tool.link}" target="_blank" rel="noopener" onclick="event.stopPropagation()">docs ↗</a>`
         : '';
@@ -675,7 +692,7 @@ function buildSteps() {
   </div>
   <div class="mcp-tool-desc">${tool.desc}</div>
   <div class="mcp-tool-cmd">${cmd}</div>
-  ${tool.envVars.length ? `<div class="mcp-env-fields ${state.mcp_selections[tool.name]?.selected ? 'visible' : ''}" id="mcp-env-${tool.name}">${envHtml}</div>` : ''}
+  ${hasExtras ? `<div class="mcp-env-fields ${state.mcp_selections[tool.name]?.selected ? 'visible' : ''}" id="mcp-env-${tool.name}">${guideHtml}${envHtml}</div>` : ''}
 </div>`;
     }
     html5 += `</div>`;
