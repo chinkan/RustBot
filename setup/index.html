@@ -98,6 +98,39 @@
   .mcp-env-fields .env-row { margin-bottom: 0.5rem; }
   .mcp-env-label { font-size: 0.75rem; color: #718096; margin-bottom: 0.2rem; }
   .mcp-env-fields input { font-family: monospace; font-size: 0.82rem; }
+  /* MCP prereqs box */
+  .mcp-prereqs {
+    background: #131825;
+    border: 1px solid #2d3748;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.82rem;
+    color: #718096;
+    line-height: 1.7;
+  }
+  .mcp-prereqs strong { color: #cbd5e0; }
+  .mcp-prereqs a { color: #f6851b; text-decoration: none; }
+  .mcp-prereqs a:hover { text-decoration: underline; }
+  /* Per-tool docs link */
+  .mcp-tool-link {
+    margin-left: auto;
+    font-size: 0.72rem;
+    color: #4a5568;
+    text-decoration: none;
+    flex-shrink: 0;
+    padding: 0.1rem 0.3rem;
+  }
+  .mcp-tool-link:hover { color: #f6851b; }
+  /* Find more footer */
+  .mcp-more {
+    margin-top: 1.25rem;
+    font-size: 0.8rem;
+    color: #718096;
+    text-align: center;
+  }
+  .mcp-more a { color: #f6851b; text-decoration: none; }
+  .mcp-more a:hover { text-decoration: underline; }
   /* Config preview */
   pre {
     background: #0f1117;
@@ -130,23 +163,23 @@
 <script>
 // ── MCP Catalog ────────────────────────────────────────────────────────────────
 const MCP_CATALOG = [
-  { name:'playwright',       category:'Browser & Web',      desc:'Browser automation & web scraping',           runner:'npx', args:['-y','@playwright/mcp'],                          envVars:[] },
-  { name:'brave-search',     category:'Browser & Web',      desc:'Real-time web search via Brave',               runner:'npx', args:['-y','@anthropic/mcp-brave-search'],              envVars:['BRAVE_API_KEY'] },
-  { name:'firecrawl',        category:'Browser & Web',      desc:'URL to clean Markdown scraping',               runner:'npx', args:['-y','firecrawl-mcp'],                            envVars:['FIRECRAWL_API_KEY'] },
-  { name:'fetch',            category:'Browser & Web',      desc:'Lightweight page fetching',                    runner:'uvx', args:['mcp-server-fetch'],                              envVars:[] },
-  { name:'google-workspace', category:'Productivity',       desc:'Gmail, Calendar, Drive, Docs',                 runner:'uvx', args:['google-workspace-mcp'],                          envVars:['GOOGLE_CLIENT_ID','GOOGLE_CLIENT_SECRET'] },
-  { name:'notion',           category:'Productivity',       desc:'Read/write Notion workspace',                  runner:'npx', args:['-y','@notionhq/notion-mcp-server'],              envVars:['NOTION_API_KEY'] },
-  { name:'obsidian',         category:'Productivity',       desc:'Local Obsidian vault access',                  runner:'npx', args:['-y','obsidian-mcp'],                             envVars:[] },
-  { name:'slack',            category:'Communication',      desc:'Read channels, post Slack messages',           runner:'npx', args:['-y','@anthropic/mcp-slack'],                     envVars:['SLACK_BOT_TOKEN'] },
-  { name:'discord',          category:'Communication',      desc:'Send and read Discord messages',               runner:'npx', args:['-y','discord-mcp'],                              envVars:['DISCORD_TOKEN'] },
-  { name:'github',           category:'Developer Tools',    desc:'Issues, PRs, repository management',           runner:'npx', args:['-y','@anthropic/mcp-github'],                    envVars:['GITHUB_TOKEN'] },
-  { name:'git',              category:'Developer Tools',    desc:'Local git repository operations',              runner:'uvx', args:['mcp-server-git'],                                envVars:[] },
-  { name:'filesystem',       category:'Developer Tools',    desc:'Expanded filesystem access beyond sandbox',    runner:'npx', args:['-y','@modelcontextprotocol/server-filesystem'],  envVars:[] },
-  { name:'memory',           category:'Knowledge & Data',   desc:'Persistent cross-session memory graph',        runner:'npx', args:['-y','@anthropic/mcp-memory'],                    envVars:[] },
-  { name:'tavily',           category:'Knowledge & Data',   desc:'AI-optimised semantic web search',             runner:'npx', args:['-y','tavily-mcp'],                               envVars:['TAVILY_API_KEY'] },
-  { name:'context7',         category:'Knowledge & Data',   desc:'Live library documentation fetching',          runner:'npx', args:['-y','@upstash/context7-mcp'],                    envVars:[] },
-  { name:'open-meteo',       category:'Weather & Location', desc:'Free weather forecasts, no API key needed',   runner:'npx', args:['-y','open-meteo-mcp'],                            envVars:[] },
-  { name:'openweathermap',   category:'Weather & Location', desc:'Current weather and forecasts',                runner:'npx', args:['-y','openweathermap-mcp'],                       envVars:['OPENWEATHERMAP_API_KEY'] },
+  { name:'playwright',       category:'Browser & Web',      desc:'Browser automation & web scraping',           runner:'npx', args:['-y','@playwright/mcp'],                          envVars:[],                                           link:'https://www.npmjs.com/package/@playwright/mcp' },
+  { name:'brave-search',     category:'Browser & Web',      desc:'Real-time web search via Brave',               runner:'npx', args:['-y','@anthropic/mcp-brave-search'],              envVars:['BRAVE_API_KEY'],                            link:'https://www.npmjs.com/package/@anthropic/mcp-brave-search' },
+  { name:'firecrawl',        category:'Browser & Web',      desc:'URL to clean Markdown scraping',               runner:'npx', args:['-y','firecrawl-mcp'],                            envVars:['FIRECRAWL_API_KEY'],                        link:'https://www.npmjs.com/package/firecrawl-mcp' },
+  { name:'fetch',            category:'Browser & Web',      desc:'Lightweight page fetching',                    runner:'uvx', args:['mcp-server-fetch'],                              envVars:[],                                           link:'https://pypi.org/project/mcp-server-fetch' },
+  { name:'google-workspace', category:'Productivity',       desc:'Gmail, Calendar, Drive, Docs',                 runner:'uvx', args:['google-workspace-mcp'],                          envVars:['GOOGLE_CLIENT_ID','GOOGLE_CLIENT_SECRET'],  link:'https://pypi.org/project/google-workspace-mcp' },
+  { name:'notion',           category:'Productivity',       desc:'Read/write Notion workspace',                  runner:'npx', args:['-y','@notionhq/notion-mcp-server'],              envVars:['NOTION_API_KEY'],                           link:'https://www.npmjs.com/package/@notionhq/notion-mcp-server' },
+  { name:'obsidian',         category:'Productivity',       desc:'Local Obsidian vault access',                  runner:'npx', args:['-y','obsidian-mcp'],                             envVars:[],                                           link:'https://www.npmjs.com/package/obsidian-mcp' },
+  { name:'slack',            category:'Communication',      desc:'Read channels, post Slack messages',           runner:'npx', args:['-y','@anthropic/mcp-slack'],                     envVars:['SLACK_BOT_TOKEN'],                          link:'https://www.npmjs.com/package/@anthropic/mcp-slack' },
+  { name:'discord',          category:'Communication',      desc:'Send and read Discord messages',               runner:'npx', args:['-y','discord-mcp'],                              envVars:['DISCORD_TOKEN'],                            link:'https://www.npmjs.com/package/discord-mcp' },
+  { name:'github',           category:'Developer Tools',    desc:'Issues, PRs, repository management',           runner:'npx', args:['-y','@anthropic/mcp-github'],                    envVars:['GITHUB_TOKEN'],                             link:'https://www.npmjs.com/package/@anthropic/mcp-github' },
+  { name:'git',              category:'Developer Tools',    desc:'Local git repository operations',              runner:'uvx', args:['mcp-server-git'],                                envVars:[],                                           link:'https://pypi.org/project/mcp-server-git' },
+  { name:'filesystem',       category:'Developer Tools',    desc:'Expanded filesystem access beyond sandbox',    runner:'npx', args:['-y','@modelcontextprotocol/server-filesystem'],  envVars:[],                                           link:'https://www.npmjs.com/package/@modelcontextprotocol/server-filesystem' },
+  { name:'memory',           category:'Knowledge & Data',   desc:'Persistent cross-session memory graph',        runner:'npx', args:['-y','@anthropic/mcp-memory'],                    envVars:[],                                           link:'https://www.npmjs.com/package/@anthropic/mcp-memory' },
+  { name:'tavily',           category:'Knowledge & Data',   desc:'AI-optimised semantic web search',             runner:'npx', args:['-y','tavily-mcp'],                               envVars:['TAVILY_API_KEY'],                           link:'https://www.npmjs.com/package/tavily-mcp' },
+  { name:'context7',         category:'Knowledge & Data',   desc:'Live library documentation fetching',          runner:'npx', args:['-y','@upstash/context7-mcp'],                    envVars:[],                                           link:'https://www.npmjs.com/package/@upstash/context7-mcp' },
+  { name:'open-meteo',       category:'Weather & Location', desc:'Free weather forecasts, no API key needed',   runner:'npx', args:['-y','open-meteo-mcp'],                            envVars:[],                                           link:'https://www.npmjs.com/package/open-meteo-mcp' },
+  { name:'openweathermap',   category:'Weather & Location', desc:'Current weather and forecasts',                runner:'npx', args:['-y','openweathermap-mcp'],                       envVars:['OPENWEATHERMAP_API_KEY'],                   link:'https://www.npmjs.com/package/openweathermap-mcp' },
 ];
 
 // ── State ──────────────────────────────────────────────────────────────────────
@@ -417,7 +450,13 @@ function buildSteps() {
   // Step 5: MCP Tools
   const categories = [...new Set(MCP_CATALOG.map(t => t.category))];
   let html5 = `<div class="step" id="step-5">
-  <h2>MCP Tools <span class="hint" style="font-size:0.85rem;font-weight:400">— all optional, can be added later</span></h2>`;
+  <h2>MCP Tools <span class="hint" style="font-size:0.85rem;font-weight:400">— all optional, can be added later</span></h2>
+  <div class="mcp-prereqs">
+    <strong>Prerequisites</strong> — MCP servers run as child processes outside RustBot.<br>
+    Tools marked <code>uvx</code> need <strong><a href="https://docs.astral.sh/uv/getting-started/installation/" target="_blank" rel="noopener">uv</a></strong> installed &nbsp;(<code>curl -LsSf https://astral.sh/uv/install.sh | sh</code>).<br>
+    Tools marked <code>npx</code> need <strong><a href="https://nodejs.org/" target="_blank" rel="noopener">Node.js</a></strong> installed &nbsp;(<a href="https://nodejs.org/en/download/" target="_blank" rel="noopener">nodejs.org/en/download</a>).<br>
+    Click <em>docs ↗</em> on any tool to read its full documentation before enabling it.
+  </div>`;
   for (const cat of categories) {
     html5 += `<div class="mcp-category"><h3>${cat}</h3>`;
     for (const tool of MCP_CATALOG.filter(t => t.category === cat)) {
@@ -428,10 +467,14 @@ function buildSteps() {
           <input type="text" placeholder="${k}" oninput="setEnv('${tool.name}','${k}',this.value)">
         </div>`
       ).join('');
+      const linkHtml = tool.link
+        ? `<a class="mcp-tool-link" href="${tool.link}" target="_blank" rel="noopener" onclick="event.stopPropagation()">docs ↗</a>`
+        : '';
       html5 += `<div class="mcp-tool" id="mcp-wrap-${tool.name}" onclick="toggleTool('${tool.name}', event)">
   <div class="mcp-tool-header">
     <input type="checkbox" id="mcp-cb-${tool.name}" onclick="event.stopPropagation();toggleTool('${tool.name}',event)">
     <span class="mcp-tool-name">${tool.name}</span>
+    ${linkHtml}
   </div>
   <div class="mcp-tool-desc">${tool.desc}</div>
   <div class="mcp-tool-cmd">${cmd}</div>
@@ -440,6 +483,10 @@ function buildSteps() {
     }
     html5 += `</div>`;
   }
+  html5 += `<div class="mcp-more">
+    Want more tools? Browse the <a href="https://github.com/modelcontextprotocol/servers" target="_blank" rel="noopener">MCP server registry</a>
+    or <a href="https://mcp.so/" target="_blank" rel="noopener">mcp.so</a> and add them manually in <code>config.toml</code>.
+  </div>`;
   html5 += `</div>`;
   c.innerHTML += html5;
 
