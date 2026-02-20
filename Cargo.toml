@@ -50,3 +50,6 @@ tokio-cron-scheduler = "0.13"
 
 # SQLite vector search extension
 sqlite-vec = "0.1"
+
+# Setup wizard web server (used only by src/bin/setup.rs)
+axum = "0.8"

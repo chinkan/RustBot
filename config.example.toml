@@ -22,9 +22,6 @@ Use the available tools to help the user with their tasks. \
 When using file or terminal tools, operate only within the allowed sandbox directory. \
 Be concise and helpful."""
 
-# Your location, injected into the system prompt so the AI knows your timezone/region
-# location = "Tokyo, Japan"
-
 [sandbox]
 # The directory where file operations and command execution are allowed
 # The bot cannot access files outside this directory
@@ -39,6 +36,11 @@ database_path = "rustbot.db"
 # Directory containing skill markdown files
 # Skills are natural-language instructions loaded at startup
 directory = "skills"
+
+[general]
+# Your location, injected into the system prompt so the AI knows your timezone/region
+# Uncomment and set to your city/region (e.g. "Tokyo, Japan")
+# location = "Tokyo, Japan"
 
 # Embedding API for vector search (optional)
 # When configured, enables hybrid vector + FTS5 search for memory.
@@ -70,6 +72,6 @@ directory = "skills"
 # [[mcp_servers]]
 # name = "brave-search"
 # command = "npx"
-# args = ["-y", "@anthropic/mcp-brave-search"]
+# args = ["-y", "@brave/brave-search-mcp-server"]
 # [mcp_servers.env]
 # BRAVE_API_KEY = "your-brave-api-key"

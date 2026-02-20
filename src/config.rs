@@ -13,9 +13,9 @@ pub struct Config {
     pub memory: MemoryConfig,
     #[serde(default = "default_skills_config")]
     pub skills: SkillsConfig,
+    #[serde(default)]
+    pub general: Option<GeneralConfig>,
     pub embedding: Option<EmbeddingApiConfig>,
-    /// Optional location string injected into the system prompt (e.g. "Tokyo, Japan")
-    pub location: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -75,6 +75,13 @@ pub struct SkillsConfig {
     pub directory: PathBuf,
 }
 
+#[derive(Debug, Deserialize, Clone, Default)]
+pub struct GeneralConfig {
+    /// Optional location string injected into the system prompt (e.g. "Tokyo, Japan")
+    #[serde(default)]
+    pub location: Option<String>,
+}
+
 fn default_model() -> String {
     "moonshotai/kimi-k2.5".to_string()
 }
@@ -127,6 +134,11 @@ fn default_skills_config() -> SkillsConfig {
 }
 
 impl Config {
+    /// Location string from [general], injected into the system prompt.
+    pub fn user_location(&self) -> Option<&str> {
+        self.general.as_ref().and_then(|g| g.location.as_deref())
+    }
+
     pub fn load(path: &Path) -> Result<Self> {
         let content = std::fs::read_to_string(path)
             .with_context(|| format!("Failed to read config file: {}", path.display()))?;
