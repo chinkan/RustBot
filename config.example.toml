@@ -72,6 +72,17 @@ directory = "skills"
 # command = "npx"
 # args = ["-y", "@modelcontextprotocol/server-filesystem", "/tmp/rustfox-sandbox"]
 
+# Example: Google Workspace MCP server
+# Note: use --from because the package name differs from the executable name
+# [[mcp_servers]]
+# name = "google-workspace"
+# command = "uvx"
+# args = ["--from", "google-workspace-mcp", "google-workspace-worker"]
+# [mcp_servers.env]
+# GOOGLE_CLIENT_ID = "your-client-id"
+# GOOGLE_CLIENT_SECRET = "your-client-secret"
+# GOOGLE_REDIRECT_URI = "your-redirect-uri"
+
 # Example: Web search MCP server with environment variables
 # [[mcp_servers]]
 # name = "brave-search"
