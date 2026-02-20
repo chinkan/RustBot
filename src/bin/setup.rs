@@ -256,8 +256,8 @@ fn run_cli(project_root: &Path) -> Result<()> {
     let user_ids = read_line("Allowed user IDs (comma-separated): ")?;
     let or_key = read_line("OpenRouter API key: ")?;
     let model = or_default(
-        read_line("Model [qwen/qwen3-235b-a22b]: ")?,
-        "qwen/qwen3-235b-a22b",
+        read_line("Model [moonshotai/kimi-k2.5]: ")?,
+        "moonshotai/kimi-k2.5",
     );
     let sandbox = or_default(
         read_line("Sandbox directory [/tmp/rustfox-sandbox]: ")?,

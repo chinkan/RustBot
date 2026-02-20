@@ -224,10 +224,10 @@ const state = {
   telegram_token: '',
   allowed_user_ids: '',
   openrouter_key: '',
-  model: 'qwen/qwen3-235b-a22b',
+  model: 'moonshotai/kimi-k2.5',
   max_tokens: '4096',
   system_prompt: 'You are a helpful AI assistant with access to tools. Use the available tools to help the user with their tasks. When using file or terminal tools, operate only within the allowed sandbox directory. Be concise and helpful.',
-  location: '',
+  location: 'Hong Kong',
   sandbox_dir: '/tmp/rustfox-sandbox',
   db_path: 'rustfox.db',
   mcp_selections: {},
@@ -608,7 +608,7 @@ function buildSteps() {
   </div>
   <div class="field">
     <label>Model <span class="hint">— openrouter.ai/models</span></label>
-    <input type="text" id="f-model" value="${escHtml(state.model || 'qwen/qwen3-235b-a22b')}">
+    <input type="text" id="f-model" value="${escHtml(state.model || 'moonshotai/kimi-k2.5')}">
     <div class="error-msg" id="f-model-err">Model is required.</div>
   </div>
   <div class="field">
@@ -621,7 +621,7 @@ function buildSteps() {
   </div>
   <div class="field">
     <label>Location <span class="hint">— optional, gives the AI your timezone/region</span></label>
-    <input type="text" id="f-location" placeholder="Tokyo, Japan" value="${escHtml(state.location)}">
+    <input type="text" id="f-location" placeholder="Hong Kong" value="${escHtml(state.location)}">
   </div>
 </div>`;
 
