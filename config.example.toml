@@ -72,24 +72,36 @@ directory = "skills"
 # command = "npx"
 # args = ["-y", "@modelcontextprotocol/server-filesystem", "/tmp/rustfox-sandbox"]
 
-# Example: Google Workspace MCP server (Gmail, Calendar, Drive, Docs)
+# Example: Google Workspace MCP server (Gmail, Calendar, Drive, Docs, Sheets, Slides)
 # Note: use --from because the package name differs from the executable name
 #
-# OAuth setup — https://console.cloud.google.com/apis/credentials
-#   1. Create/select a project → enable Gmail API, Google Calendar API, Google Drive API
-#   2. APIs & Services → OAuth consent screen → External → add your email as a test user
+# OAuth setup:
+#   1. https://console.cloud.google.com/apis/credentials
+#      → Create/select project → enable Drive, Gmail, Calendar, Docs, Sheets, Slides APIs
+#   2. OAuth consent screen → External → add your email as a test user
 #   3. Credentials → Create OAuth Client ID → Web application
-#      Add Authorised redirect URI: http://localhost:8080
-#      Download credentials → copy Client ID and Client Secret below
+#      → add Authorised redirect URI: https://developers.google.com/oauthplayground
+#      → save your Client ID and Client Secret
+#   4. Open https://developers.google.com/oauthplayground
+#      → gear icon → check "Use your own OAuth credentials" → enter Client ID + Secret
+#      → add scopes: https://www.googleapis.com/auth/drive
+#                    https://www.googleapis.com/auth/gmail.modify
+#                    https://www.googleapis.com/auth/calendar
+#                    https://www.googleapis.com/auth/documents
+#                    https://www.googleapis.com/auth/spreadsheets
+#                    https://www.googleapis.com/auth/presentations
+#      → "Authorize APIs" → sign in → "Exchange authorization code for tokens"
+#      → copy the Refresh token value
 #
 # [[mcp_servers]]
 # name = "google-workspace"
 # command = "uvx"
 # args = ["--from", "google-workspace-mcp", "google-workspace-worker"]
 # [mcp_servers.env]
-# GOOGLE_CLIENT_ID = "your-client-id.apps.googleusercontent.com"
-# GOOGLE_CLIENT_SECRET = "your-client-secret"
-# GOOGLE_REDIRECT_URI = "http://localhost:8080"
+# GOOGLE_WORKSPACE_CLIENT_ID     = "your-client-id.apps.googleusercontent.com"
+# GOOGLE_WORKSPACE_CLIENT_SECRET = "your-client-secret"
+# GOOGLE_WORKSPACE_REFRESH_TOKEN = "your-refresh-token"  # from step 4 above
+# GOOGLE_WORKSPACE_ENABLED_CAPABILITIES = '["drive","docs","gmail","calendar","sheets","slides"]'
 
 # Example: Web search MCP server with environment variables
 # [[mcp_servers]]
