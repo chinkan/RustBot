@@ -75,17 +75,73 @@ See [`config.example.toml`](config.example.toml) for all options.
 
 ### MCP Server Configuration
 
+RustBot supports the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) — an open standard for connecting AI assistants to external tools and data sources. Any MCP-compatible server can be plugged in via `config.toml`.
+
+#### Prerequisites
+
+MCP servers are usually distributed as Python packages (run via `uvx`) or npm packages (run via `npx`).
+
+| Runtime | Install |
+|---------|---------|
+| `uvx` (Python) | [Install uv](https://docs.astral.sh/uv/getting-started/installation/) — `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
+| `npx` (Node.js) | [Install Node.js](https://nodejs.org/) — comes bundled with npm/npx |
+
+#### Config Syntax
+
+Add one `[[mcp_servers]]` block per server in `config.toml`:
+
 ```toml
 [[mcp_servers]]
-name = "git"
-command = "uvx"
-args = ["mcp-server-git"]
+name   = "server-name"   # used to namespace tools: mcp_<name>_<tool>
+command = "uvx"          # or "npx", or any executable on PATH
+args   = ["package-name", "optional-arg"]
 
-[[mcp_servers]]
-name = "filesystem"
-command = "npx"
-args = ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/dir"]
+# Optional: pass environment variables to the server process
+# [mcp_servers.env]
+# API_KEY = "your-key-here"
 ```
+
+#### Popular MCP Servers
+
+| Server | Package | Runtime | Notes |
+|--------|---------|---------|-------|
+| [Git](https://github.com/modelcontextprotocol/servers/tree/main/src/git) | `mcp-server-git` | `uvx` | Read/search git repos |
+| [Filesystem](https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem) | `@modelcontextprotocol/server-filesystem` | `npx` | File access outside the sandbox |
+| [Brave Search](https://github.com/modelcontextprotocol/servers/tree/main/src/brave-search) | `@anthropic/mcp-brave-search` | `npx` | Web search (needs [Brave API key](https://brave.com/search/api/)) |
+| [GitHub](https://github.com/modelcontextprotocol/servers/tree/main/src/github) | `@modelcontextprotocol/server-github` | `npx` | Issues, PRs, repos |
+| [Fetch](https://github.com/modelcontextprotocol/servers/tree/main/src/fetch) | `mcp-server-fetch` | `uvx` | HTTP fetch / web scraping |
+| [SQLite](https://github.com/modelcontextprotocol/servers/tree/main/src/sqlite) | `mcp-server-sqlite` | `uvx` | Query local SQLite databases |
+| [Puppeteer](https://github.com/modelcontextprotocol/servers/tree/main/src/puppeteer) | `@modelcontextprotocol/server-puppeteer` | `npx` | Browser automation |
+
+> Find more servers at the [MCP server registry](https://github.com/modelcontextprotocol/servers) and [mcp.so](https://mcp.so/).
+
+#### Examples
+
+```toml
+# Git — inspect repositories
+[[mcp_servers]]
+name    = "git"
+command = "uvx"
+args    = ["mcp-server-git"]
+
+# Filesystem — expose an extra directory to the bot
+[[mcp_servers]]
+name    = "filesystem"
+command = "npx"
+args    = ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/dir"]
+
+# Brave Search — web search (requires API key)
+[[mcp_servers]]
+name    = "brave-search"
+command = "npx"
+args    = ["-y", "@anthropic/mcp-brave-search"]
+[mcp_servers.env]
+BRAVE_API_KEY = "your-brave-api-key"
+```
+
+#### Tool Naming
+
+Tools from MCP servers are automatically namespaced as `mcp_<server-name>_<tool-name>` (e.g. `mcp_git_git_log`). Run `/tools` in the bot to see all registered tools after startup.
 
 ## Built-in Tools
 
