@@ -1,9 +1,10 @@
 # RustBot — Telegram AI Assistant
 
+[![CI](https://github.com/chinkan/RustBot/actions/workflows/ci.yml/badge.svg)](https://github.com/chinkan/RustBot/actions)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Buy Me a Coffee](https://img.shields.io/badge/buy%20me%20a%20coffee-%E2%98%95-yellow)](https://buymeacoffee.com/chinkan.ai)
 
-A Rust-based Telegram AI assistant powered by OpenRouter LLM (default: `moonshotai/kimi-k2.5`) with built-in sandboxed tools, scheduling, persistent memory, and MCP server integration.
+A self-hosted, agentic Telegram AI assistant written in Rust, powered by OpenRouter LLM (default: `moonshotai/kimi-k2.5`) with built-in sandboxed tools, scheduling, persistent memory, and MCP server integration.
 
 ## Features
 
@@ -212,11 +213,7 @@ src/
 
 ## Contributing
 
-This project is open source under the [MIT License](LICENSE). Contributions are very welcome!
-
-Feel free to:
-- Open an issue for bugs or feature requests
-- Submit a pull request — all PRs are appreciated
+This project is open source under the [MIT License](LICENSE). Contributions are very welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for how to open issues and submit pull requests.
 
 ## Support
 
