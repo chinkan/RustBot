@@ -4,19 +4,21 @@
 
 **Goal:** Build a browser-based setup wizard that guides users through creating `config.toml`, launched via `setup.sh` (web by default, CLI with `--cli` flag).
 
-**Architecture:** A shell entry point (`setup.sh`) either runs interactive CLI prompts or spins up a tiny Python 3 HTTP server serving a single self-contained HTML wizard. The wizard collects all config values across 6 steps, generates valid TOML, and POSTs it to the server which writes `config.toml` to the project root.
+**Architecture:** A shell entry point (`setup.sh`) either runs interactive CLI prompts or starts an Axum HTTP server (compiled Rust binary) that serves a single self-contained HTML wizard. The wizard collects all config values across 6 steps, generates valid TOML, and POSTs it to `/api/save-config` which writes `config.toml` to the project root then shuts the server down via a oneshot channel.
 
-**Tech Stack:** Bash, Python 3 stdlib (`http.server`), vanilla HTML/CSS/JS (no build step, no frameworks)
+**Tech Stack:** Bash, Rust + Axum 0.8 + Tokio (new `setup` binary at `src/bin/setup.rs`), vanilla HTML/CSS/JS embedded via `include_str!` (no build step, no JS frameworks)
 
 ---
 
 ## File Map
 
 ```
-setup.sh              ← entry point
+setup.sh              ← entry point (builds + runs the Rust binary)
 setup/
-  server.py           ← Python HTTP server (GET /  →  POST /api/save-config)
-  index.html          ← self-contained wizard SPA
+  index.html          ← self-contained wizard SPA (embedded in binary via include_str!)
+src/bin/
+  setup.rs            ← Axum HTTP server + CLI mode + unit tests
+Cargo.toml            ← axum = "0.8" added
 ```
 
 ## MCP Catalog Reference
