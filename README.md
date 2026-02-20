@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.png" alt="RustFox Logo" width="200"/>
+  <img src="assets/logo.jpeg" alt="RustFox Logo" width="200"/>
 </p>
 
 # RustFox — Telegram AI Assistant
