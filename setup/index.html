@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RustBot Setup</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0f1117;
+    color: #e2e8f0;
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 2rem;
+  }
+  .card {
+    background: #1a1f2e;
+    border: 1px solid #2d3748;
+    border-radius: 16px;
+    width: 100%;
+    max-width: 700px;
+    padding: 2.5rem;
+    margin-top: 2rem;
+  }
+  /* Progress bar */
+  .progress-wrap { margin-bottom: 2rem; }
+  .progress-label { font-size: 0.75rem; color: #718096; margin-bottom: 0.5rem; }
+  .progress-bar { height: 4px; background: #2d3748; border-radius: 2px; }
+  .progress-fill { height: 100%; background: #f6851b; border-radius: 2px; transition: width 0.3s ease; }
+  /* Steps */
+  .step { display: none; }
+  .step.active { display: block; }
+  h1 { font-size: 1.75rem; font-weight: 700; margin-bottom: 0.5rem; }
+  h2 { font-size: 1.25rem; font-weight: 600; margin-bottom: 1.5rem; color: #cbd5e0; }
+  p.subtitle { color: #718096; margin-bottom: 2rem; line-height: 1.6; }
+  code { background: #2d3748; border-radius: 4px; padding: 0.1em 0.35em; font-size: 0.85em; }
+  /* Form elements */
+  .field { margin-bottom: 1.25rem; }
+  label { display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.4rem; color: #cbd5e0; }
+  label .hint { font-weight: 400; color: #718096; margin-left: 0.4rem; }
+  input[type=text], input[type=password], textarea {
+    width: 100%;
+    background: #0f1117;
+    border: 1px solid #2d3748;
+    border-radius: 8px;
+    color: #e2e8f0;
+    padding: 0.6rem 0.875rem;
+    font-size: 0.9rem;
+    font-family: inherit;
+    transition: border-color 0.2s;
+  }
+  input[type=text]:focus, input[type=password]:focus, textarea:focus {
+    outline: none;
+    border-color: #f6851b;
+  }
+  input.error, textarea.error { border-color: #fc8181; }
+  .error-msg { color: #fc8181; font-size: 0.8rem; margin-top: 0.3rem; display: none; }
+  .error-msg.visible { display: block; }
+  textarea { resize: vertical; min-height: 90px; }
+  /* Buttons */
+  .btn-row { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 2rem; }
+  button {
+    padding: 0.6rem 1.4rem;
+    border-radius: 8px;
+    border: none;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  button:hover:not(:disabled) { opacity: 0.85; }
+  button:disabled { opacity: 0.45; cursor: default; }
+  .btn-primary { background: #f6851b; color: #fff; }
+  .btn-secondary { background: #2d3748; color: #e2e8f0; }
+  /* MCP tools */
+  .mcp-category { margin-bottom: 1.5rem; }
+  .mcp-category h3 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: #718096; margin-bottom: 0.75rem; }
+  .mcp-tool {
+    border: 1px solid #2d3748;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.5rem;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .mcp-tool:hover { border-color: #4a5568; }
+  .mcp-tool.selected { border-color: #f6851b; background: #1e2432; }
+  .mcp-tool-header { display: flex; align-items: center; gap: 0.75rem; }
+  .mcp-tool-header input[type=checkbox] { accent-color: #f6851b; width: 16px; height: 16px; flex-shrink: 0; cursor: pointer; }
+  .mcp-tool-name { font-weight: 600; font-size: 0.9rem; }
+  .mcp-tool-desc { font-size: 0.8rem; color: #718096; margin-left: 1.75rem; margin-top: 0.2rem; }
+  .mcp-tool-cmd { font-size: 0.75rem; color: #4a5568; font-family: monospace; margin-left: 1.75rem; margin-top: 0.15rem; }
+  .mcp-env-fields { margin-left: 1.75rem; margin-top: 0.75rem; display: none; }
+  .mcp-env-fields.visible { display: block; }
+  .mcp-env-fields .env-row { margin-bottom: 0.5rem; }
+  .mcp-env-label { font-size: 0.75rem; color: #718096; margin-bottom: 0.2rem; }
+  .mcp-env-fields input { font-family: monospace; font-size: 0.82rem; }
+  /* Config preview */
+  pre {
+    background: #0f1117;
+    border: 1px solid #2d3748;
+    border-radius: 8px;
+    padding: 1rem;
+    font-size: 0.78rem;
+    overflow: auto;
+    max-height: 340px;
+    color: #a0aec0;
+    white-space: pre;
+  }
+  .success-msg { color: #68d391; font-size: 0.9rem; margin-top: 1rem; display: none; }
+  .success-msg.visible { display: block; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="progress-wrap">
+    <div class="progress-label" id="progress-label">Step 1 of 6</div>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:16.6%"></div></div>
+  </div>
+  <div id="steps-container"></div>
+  <div class="btn-row">
+    <button class="btn-secondary" id="btn-back" onclick="prevStep()" style="display:none">← Back</button>
+    <button class="btn-primary" id="btn-next" onclick="nextStep()">Get Started →</button>
+  </div>
+</div>
+
+<script>
+// ── MCP Catalog ────────────────────────────────────────────────────────────────
+const MCP_CATALOG = [
+  { name:'playwright',       category:'Browser & Web',      desc:'Browser automation & web scraping',           runner:'npx', args:['-y','@playwright/mcp'],                          envVars:[] },
+  { name:'brave-search',     category:'Browser & Web',      desc:'Real-time web search via Brave',               runner:'npx', args:['-y','@anthropic/mcp-brave-search'],              envVars:['BRAVE_API_KEY'] },
+  { name:'firecrawl',        category:'Browser & Web',      desc:'URL to clean Markdown scraping',               runner:'npx', args:['-y','firecrawl-mcp'],                            envVars:['FIRECRAWL_API_KEY'] },
+  { name:'fetch',            category:'Browser & Web',      desc:'Lightweight page fetching',                    runner:'uvx', args:['mcp-server-fetch'],                              envVars:[] },
+  { name:'google-workspace', category:'Productivity',       desc:'Gmail, Calendar, Drive, Docs',                 runner:'uvx', args:['google-workspace-mcp'],                          envVars:['GOOGLE_CLIENT_ID','GOOGLE_CLIENT_SECRET'] },
+  { name:'notion',           category:'Productivity',       desc:'Read/write Notion workspace',                  runner:'npx', args:['-y','@notionhq/notion-mcp-server'],              envVars:['NOTION_API_KEY'] },
+  { name:'obsidian',         category:'Productivity',       desc:'Local Obsidian vault access',                  runner:'npx', args:['-y','obsidian-mcp'],                             envVars:[] },
+  { name:'slack',            category:'Communication',      desc:'Read channels, post Slack messages',           runner:'npx', args:['-y','@anthropic/mcp-slack'],                     envVars:['SLACK_BOT_TOKEN'] },
+  { name:'discord',          category:'Communication',      desc:'Send and read Discord messages',               runner:'npx', args:['-y','discord-mcp'],                              envVars:['DISCORD_TOKEN'] },
+  { name:'github',           category:'Developer Tools',    desc:'Issues, PRs, repository management',           runner:'npx', args:['-y','@anthropic/mcp-github'],                    envVars:['GITHUB_TOKEN'] },
+  { name:'git',              category:'Developer Tools',    desc:'Local git repository operations',              runner:'uvx', args:['mcp-server-git'],                                envVars:[] },
+  { name:'filesystem',       category:'Developer Tools',    desc:'Expanded filesystem access beyond sandbox',    runner:'npx', args:['-y','@modelcontextprotocol/server-filesystem'],  envVars:[] },
+  { name:'memory',           category:'Knowledge & Data',   desc:'Persistent cross-session memory graph',        runner:'npx', args:['-y','@anthropic/mcp-memory'],                    envVars:[] },
+  { name:'tavily',           category:'Knowledge & Data',   desc:'AI-optimised semantic web search',             runner:'npx', args:['-y','tavily-mcp'],                               envVars:['TAVILY_API_KEY'] },
+  { name:'context7',         category:'Knowledge & Data',   desc:'Live library documentation fetching',          runner:'npx', args:['-y','@upstash/context7-mcp'],                    envVars:[] },
+  { name:'open-meteo',       category:'Weather & Location', desc:'Free weather forecasts, no API key needed',   runner:'npx', args:['-y','open-meteo-mcp'],                            envVars:[] },
+  { name:'openweathermap',   category:'Weather & Location', desc:'Current weather and forecasts',                runner:'npx', args:['-y','openweathermap-mcp'],                       envVars:['OPENWEATHERMAP_API_KEY'] },
+];
+
+// ── State ──────────────────────────────────────────────────────────────────────
+const state = {
+  telegram_token: '',
+  allowed_user_ids: '',
+  openrouter_key: '',
+  model: 'qwen/qwen3-235b-a22b',
+  max_tokens: '4096',
+  system_prompt: 'You are a helpful AI assistant with access to tools. Use the available tools to help the user with their tasks. When using file or terminal tools, operate only within the allowed sandbox directory. Be concise and helpful.',
+  location: '',
+  sandbox_dir: '/tmp/rustbot-sandbox',
+  db_path: 'rustbot.db',
+  mcp_selections: {},
+};
+
+// ── Step navigation ────────────────────────────────────────────────────────────
+const TOTAL_STEPS = 6;
+let currentStep = 1;
+
+function showStep(n) {
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+  document.getElementById('step-' + n).classList.add('active');
+  currentStep = n;
+  const pct = (n / TOTAL_STEPS * 100).toFixed(1);
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-label').textContent = 'Step ' + n + ' of ' + TOTAL_STEPS;
+  document.getElementById('btn-back').style.display = n > 1 ? 'inline-block' : 'none';
+  const btnNext = document.getElementById('btn-next');
+  btnNext.disabled = false;
+  if (n === 1) { btnNext.textContent = 'Get Started →'; }
+  else if (n === TOTAL_STEPS) { btnNext.textContent = 'Save config.toml'; }
+  else { btnNext.textContent = 'Continue →'; }
+  if (n === TOTAL_STEPS) renderPreview();
+}
+
+function prevStep() { if (currentStep > 1) showStep(currentStep - 1); }
+
+function nextStep() {
+  if (!validateStep(currentStep)) return;
+  collectStep(currentStep);
+  if (currentStep === TOTAL_STEPS) { saveConfig(); return; }
+  showStep(currentStep + 1);
+}
+
+// ── Validation ─────────────────────────────────────────────────────────────────
+function validateStep(n) {
+  let ok = true;
+  if (n === 2) {
+    ok = requireField('f-telegram-token') & ok;
+    ok = requireField('f-allowed-ids') & ok;
+  }
+  if (n === 3) {
+    ok = requireField('f-openrouter-key') & ok;
+    ok = requireField('f-model') & ok;
+  }
+  return !!ok;
+}
+
+function requireField(id) {
+  const el = document.getElementById(id);
+  const errEl = document.getElementById(id + '-err');
+  if (!el.value.trim()) {
+    el.classList.add('error');
+    if (errEl) errEl.classList.add('visible');
+    return false;
+  }
+  el.classList.remove('error');
+  if (errEl) errEl.classList.remove('visible');
+  return true;
+}
+
+// ── Collect form values ────────────────────────────────────────────────────────
+function collectStep(n) {
+  if (n === 2) {
+    state.telegram_token = document.getElementById('f-telegram-token').value.trim();
+    state.allowed_user_ids = document.getElementById('f-allowed-ids').value.trim();
+  }
+  if (n === 3) {
+    state.openrouter_key = document.getElementById('f-openrouter-key').value.trim();
+    state.model = document.getElementById('f-model').value.trim();
+    state.max_tokens = document.getElementById('f-max-tokens').value.trim() || '4096';
+    state.system_prompt = document.getElementById('f-system-prompt').value;
+    state.location = document.getElementById('f-location').value.trim();
+  }
+  if (n === 4) {
+    state.sandbox_dir = document.getElementById('f-sandbox-dir').value.trim() || '/tmp/rustbot-sandbox';
+    state.db_path = document.getElementById('f-db-path').value.trim() || 'rustbot.db';
+  }
+}
+
+// ── TOML generation ────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+function generateToml() {
+  const ids = state.allowed_user_ids.split(/[\s,]+/).filter(Boolean).join(', ');
+  const locLine = state.location
+    ? 'location = "' + esc(state.location) + '"'
+    : '# location = "Your City, Country"';
+  const sysprompt = state.system_prompt.replace(/"""/g, '\\"\\"\\"');
+
+  let toml =
+    '[telegram]\n' +
+    'bot_token = "' + esc(state.telegram_token) + '"\n' +
+    'allowed_user_ids = [' + ids + ']\n' +
+    '\n' +
+    '[openrouter]\n' +
+    'api_key = "' + esc(state.openrouter_key) + '"\n' +
+    'model = "' + esc(state.model) + '"\n' +
+    'base_url = "https://openrouter.ai/api/v1"\n' +
+    'max_tokens = ' + (parseInt(state.max_tokens, 10) || 4096) + '\n' +
+    'system_prompt = """' + sysprompt + '"""\n' +
+    locLine + '\n' +
+    '\n' +
+    '[sandbox]\n' +
+    'allowed_directory = "' + esc(state.sandbox_dir) + '"\n' +
+    '\n' +
+    '[memory]\n' +
+    'database_path = "' + esc(state.db_path) + '"\n' +
+    '\n' +
+    '[skills]\n' +
+    'directory = "skills"\n';
+
+  for (const [name, sel] of Object.entries(state.mcp_selections)) {
+    if (!sel.selected) continue;
+    const tool = MCP_CATALOG.find(t => t.name === name);
+    if (!tool) continue;
+    const args = tool.args.map(a => '"' + esc(a) + '"').join(', ');
+    toml += '\n[[mcp_servers]]\n';
+    toml += 'name = "' + name + '"\n';
+    toml += 'command = "' + tool.runner + '"\n';
+    toml += 'args = [' + args + ']\n';
+    if (tool.envVars.length > 0) {
+      toml += '[mcp_servers.env]\n';
+      for (const k of tool.envVars) {
+        toml += k + ' = "' + esc((sel.env && sel.env[k]) || '') + '"\n';
+      }
+    }
+  }
+
+  return toml;
+}
+
+function renderPreview() {
+  collectStep(4);
+  const pre = document.getElementById('config-preview');
+  if (pre) pre.textContent = generateToml();
+}
+
+// ── Save ───────────────────────────────────────────────────────────────────────
+async function saveConfig() {
+  const config = generateToml();
+  const btn = document.getElementById('btn-next');
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/save-config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ config }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      document.getElementById('success-msg').classList.add('visible');
+    } else {
+      btn.disabled = false;
+      alert('Server error saving config.');
+    }
+  } catch (e) {
+    btn.disabled = false;
+    alert('Failed to save: ' + e.message);
+  }
+}
+
+// ── MCP interactions ───────────────────────────────────────────────────────────
+function toggleTool(name, event) {
+  const cb = document.getElementById('mcp-cb-' + name);
+  if (event.target !== cb) cb.checked = !cb.checked;
+  const wrap = document.getElementById('mcp-wrap-' + name);
+  const envDiv = document.getElementById('mcp-env-' + name);
+  if (!state.mcp_selections[name]) state.mcp_selections[name] = { selected: false, env: {} };
+  state.mcp_selections[name].selected = cb.checked;
+  if (cb.checked) {
+    wrap.classList.add('selected');
+    if (envDiv) envDiv.classList.add('visible');
+  } else {
+    wrap.classList.remove('selected');
+    if (envDiv) envDiv.classList.remove('visible');
+  }
+}
+
+function setEnv(tool, key, val) {
+  if (!state.mcp_selections[tool]) state.mcp_selections[tool] = { selected: true, env: {} };
+  if (!state.mcp_selections[tool].env) state.mcp_selections[tool].env = {};
+  state.mcp_selections[tool].env[key] = val;
+}
+
+// ── Build HTML ─────────────────────────────────────────────────────────────────
+function buildSteps() {
+  const c = document.getElementById('steps-container');
+
+  // Step 1: Welcome
+  c.innerHTML += `<div class="step" id="step-1">
+  <h1>Welcome to RustBot</h1>
+  <p class="subtitle">
+    Your personal AI assistant on Telegram, powered by OpenRouter LLMs and extensible via MCP tools.<br><br>
+    This wizard creates your <code>config.toml</code> in about 2 minutes.
+    You can always edit it by hand afterwards.
+  </p>
+</div>`;
+
+  // Step 2: Telegram
+  c.innerHTML += `<div class="step" id="step-2">
+  <h2>Telegram</h2>
+  <div class="field">
+    <label>Bot Token <span class="hint">— from @BotFather</span></label>
+    <input type="password" id="f-telegram-token" placeholder="1234567890:ABC-...">
+    <div class="error-msg" id="f-telegram-token-err">Bot token is required.</div>
+  </div>
+  <div class="field">
+    <label>Allowed User IDs <span class="hint">— comma-separated, from @userinfobot</span></label>
+    <input type="text" id="f-allowed-ids" placeholder="123456789, 987654321">
+    <div class="error-msg" id="f-allowed-ids-err">At least one user ID is required.</div>
+  </div>
+</div>`;
+
+  // Step 3: OpenRouter
+  c.innerHTML += `<div class="step" id="step-3">
+  <h2>OpenRouter</h2>
+  <div class="field">
+    <label>API Key <span class="hint">— openrouter.ai/keys</span></label>
+    <input type="password" id="f-openrouter-key" placeholder="sk-or-...">
+    <div class="error-msg" id="f-openrouter-key-err">API key is required.</div>
+  </div>
+  <div class="field">
+    <label>Model <span class="hint">— openrouter.ai/models</span></label>
+    <input type="text" id="f-model" value="qwen/qwen3-235b-a22b">
+    <div class="error-msg" id="f-model-err">Model is required.</div>
+  </div>
+  <div class="field">
+    <label>Max Tokens</label>
+    <input type="text" id="f-max-tokens" value="4096">
+  </div>
+  <div class="field">
+    <label>System Prompt</label>
+    <textarea id="f-system-prompt">You are a helpful AI assistant with access to tools. Use the available tools to help the user with their tasks. When using file or terminal tools, operate only within the allowed sandbox directory. Be concise and helpful.</textarea>
+  </div>
+  <div class="field">
+    <label>Location <span class="hint">— optional, gives the AI your timezone/region</span></label>
+    <input type="text" id="f-location" placeholder="Tokyo, Japan">
+  </div>
+</div>`;
+
+  // Step 4: Sandbox & Memory
+  c.innerHTML += `<div class="step" id="step-4">
+  <h2>Sandbox &amp; Memory</h2>
+  <div class="field">
+    <label>Sandbox Directory <span class="hint">— file/command operations are restricted here</span></label>
+    <input type="text" id="f-sandbox-dir" value="/tmp/rustbot-sandbox">
+  </div>
+  <div class="field">
+    <label>Memory Database Path <span class="hint">— SQLite file for persistent memory</span></label>
+    <input type="text" id="f-db-path" value="rustbot.db">
+  </div>
+</div>`;
+
+  // Step 5: MCP Tools
+  const categories = [...new Set(MCP_CATALOG.map(t => t.category))];
+  let html5 = `<div class="step" id="step-5">
+  <h2>MCP Tools <span class="hint" style="font-size:0.85rem;font-weight:400">— all optional, can be added later</span></h2>`;
+  for (const cat of categories) {
+    html5 += `<div class="mcp-category"><h3>${cat}</h3>`;
+    for (const tool of MCP_CATALOG.filter(t => t.category === cat)) {
+      const cmd = tool.runner + ' ' + tool.args.join(' ');
+      const envHtml = tool.envVars.map(k =>
+        `<div class="env-row">
+          <div class="mcp-env-label">${k}</div>
+          <input type="text" placeholder="${k}" oninput="setEnv('${tool.name}','${k}',this.value)">
+        </div>`
+      ).join('');
+      html5 += `<div class="mcp-tool" id="mcp-wrap-${tool.name}" onclick="toggleTool('${tool.name}', event)">
+  <div class="mcp-tool-header">
+    <input type="checkbox" id="mcp-cb-${tool.name}" onclick="event.stopPropagation();toggleTool('${tool.name}',event)">
+    <span class="mcp-tool-name">${tool.name}</span>
+  </div>
+  <div class="mcp-tool-desc">${tool.desc}</div>
+  <div class="mcp-tool-cmd">${cmd}</div>
+  ${tool.envVars.length ? `<div class="mcp-env-fields" id="mcp-env-${tool.name}">${envHtml}</div>` : ''}
+</div>`;
+    }
+    html5 += `</div>`;
+  }
+  html5 += `</div>`;
+  c.innerHTML += html5;
+
+  // Step 6: Review & Save
+  c.innerHTML += `<div class="step" id="step-6">
+  <h2>Review &amp; Save</h2>
+  <p style="color:#718096;margin-bottom:1rem;font-size:0.85rem">
+    Generated <code>config.toml</code> — will be written to the project root.
+  </p>
+  <pre id="config-preview"></pre>
+  <div class="success-msg" id="success-msg">
+    ✓ config.toml saved! You can now run: <code>cargo run</code>
+  </div>
+</div>`;
+}
+
+buildSteps();
+showStep(1);
+</script>
+</body>
+</html>
