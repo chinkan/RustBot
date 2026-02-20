@@ -76,7 +76,7 @@ pub struct SkillsConfig {
 }
 
 fn default_model() -> String {
-    "qwen/qwen3-235b-a22b".to_string()
+    "moonshotai/kimi-k2.5".to_string()
 }
 
 fn default_base_url() -> String {
@@ -107,7 +107,7 @@ fn default_embedding_base_url() -> String {
 }
 
 fn default_embedding_model() -> String {
-    "openai/text-embedding-3-small".to_string()
+    "qwen/qwen3-embedding-8b".to_string()
 }
 
 fn default_embedding_dimensions() -> usize {
