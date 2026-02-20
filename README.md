@@ -28,18 +28,23 @@ cargo build --release
 
 ### 2. Configure
 
-Copy the example config and fill in your credentials:
+Run the setup wizard — it guides you through all required fields and writes `config.toml` for you:
 
 ```bash
-cp config.example.toml config.toml
+# Browser-based wizard (recommended)
+./setup.sh
+
+# Terminal wizard (no browser required)
+./setup.sh --cli
 ```
 
-Edit `config.toml`:
-- Set your Telegram bot token (from [@BotFather](https://t.me/BotFather))
-- Set your OpenRouter API key (from [openrouter.ai/keys](https://openrouter.ai/keys))
-- Add your Telegram user ID to `allowed_user_ids`
-- Set the sandbox directory for file/command operations
-- Optionally configure MCP servers and embedding API
+The wizard will ask for your:
+- Telegram bot token (from [@BotFather](https://t.me/BotFather))
+- Allowed Telegram user IDs (from [@userinfobot](https://t.me/userinfobot))
+- OpenRouter API key (from [openrouter.ai/keys](https://openrouter.ai/keys))
+- Sandbox directory, model, and optional MCP tools
+
+> **Manual setup:** Copy `config.example.toml` to `config.toml` and edit it directly if you prefer.
 
 ### 3. Run
 
@@ -144,7 +149,7 @@ src/
 - [ ] Image upload support
 - [ ] Google integration tools (Calendar, Email, Drive)
 - [ ] Event trigger framework (e.g., on email receive)
-- [ ] Web portal for setup and configuration
+- [x] Setup wizard (web UI + CLI) for guided `config.toml` creation
 - [ ] WhatsApp support
 - [ ] Webhook mode (in addition to polling)
 - [ ] And more…
