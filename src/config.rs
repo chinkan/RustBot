@@ -136,9 +136,7 @@ fn default_skills_config() -> SkillsConfig {
 impl Config {
     /// Location string from [general], injected into the system prompt.
     pub fn user_location(&self) -> Option<&str> {
-        self.general
-            .as_ref()
-            .and_then(|g| g.location.as_deref())
+        self.general.as_ref().and_then(|g| g.location.as_deref())
     }
 
     pub fn load(path: &Path) -> Result<Self> {

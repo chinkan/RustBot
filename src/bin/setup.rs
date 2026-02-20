@@ -54,10 +54,10 @@ struct SaveResponse {
 struct ExistingConfig {
     exists: bool,
     telegram_token: String,
-    allowed_user_ids: String,   // "123, 456" — ready for the text input
+    allowed_user_ids: String, // "123, 456" — ready for the text input
     openrouter_key: String,
     model: String,
-    max_tokens: u32,        // 0 = not set; frontend treats falsy as "use wizard default (4096)"
+    max_tokens: u32, // 0 = not set; frontend treats falsy as "use wizard default (4096)"
     system_prompt: String,
     location: String,
     sandbox_dir: String,
@@ -485,7 +485,10 @@ BRAVE_API_KEY = "brave123"
         assert_eq!(cfg.mcp_servers[0].args, vec!["mcp-server-git"]);
         assert!(cfg.mcp_servers[0].env.is_empty());
         assert_eq!(cfg.mcp_servers[1].name, "brave-search");
-        assert_eq!(cfg.mcp_servers[1].env.get("BRAVE_API_KEY").unwrap(), "brave123");
+        assert_eq!(
+            cfg.mcp_servers[1].env.get("BRAVE_API_KEY").unwrap(),
+            "brave123"
+        );
     }
 
     #[test]
@@ -499,7 +502,7 @@ allowed_user_ids = [42]
         let cfg = parse_existing_config(toml);
         assert!(cfg.exists);
         assert_eq!(cfg.telegram_token, "partial");
-        assert_eq!(cfg.model, "");        // no default injected — that's the wizard's job
+        assert_eq!(cfg.model, ""); // no default injected — that's the wizard's job
         assert_eq!(cfg.sandbox_dir, "");
     }
 
@@ -566,8 +569,13 @@ allowed_directory = "/tmp"
         assert!(out.contains("[general]"));
         assert!(out.contains(r#"location = "Tokyo, Japan""#));
         let general_pos = out.find("[general]").expect("[general] not found");
-        let location_pos = out.find(r#"location = "Tokyo, Japan""#).expect("location not found");
-        assert!(location_pos > general_pos, "location must appear under [general]");
+        let location_pos = out
+            .find(r#"location = "Tokyo, Japan""#)
+            .expect("location not found");
+        assert!(
+            location_pos > general_pos,
+            "location must appear under [general]"
+        );
     }
 
     #[test]
@@ -578,7 +586,10 @@ allowed_directory = "/tmp"
         assert!(!out.contains("\nlocation = "));
         let general_pos = out.find("[general]").expect("[general] not found");
         let location_pos = out.find("# location =").expect("# location not found");
-        assert!(location_pos > general_pos, "commented location must appear under [general]");
+        assert!(
+            location_pos > general_pos,
+            "commented location must appear under [general]"
+        );
     }
 
     #[test]
