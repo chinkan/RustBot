@@ -137,7 +137,7 @@ async fn save_config(
 
     let path = state.config_path.to_string_lossy().to_string();
     println!("\n✓  config.toml saved to {path}");
-    println!("   Run the bot with:  cargo run\n");
+    println!("   Run the bot with:  cargo run --bin rustbot\n");
 
     // Signal main to shut down after the response has been sent.
     let tx = state.shutdown_tx.lock().await.take();
@@ -149,6 +149,13 @@ async fn save_config(
     }
 
     Ok(Json(SaveResponse { ok: true, path }))
+}
+
+async fn load_config(State(state): State<AppState>) -> Json<ExistingConfig> {
+    match tokio::fs::read_to_string(&state.config_path).await {
+        Ok(content) => Json(parse_existing_config(&content)),
+        Err(_) => Json(ExistingConfig::default()), // file absent or unreadable
+    }
 }
 
 // ── Config formatting ──────────────────────────────────────────────────────────
@@ -298,6 +305,7 @@ async fn main() -> Result<()> {
 
     let app = Router::new()
         .route("/", get(serve_index))
+        .route("/api/load-config", get(load_config))
         .route("/api/save-config", post(save_config))
         .with_state(state);
 
