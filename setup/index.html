@@ -131,6 +131,43 @@
   }
   .mcp-more a { color: #f6851b; text-decoration: none; }
   .mcp-more a:hover { text-decoration: underline; }
+  /* Custom MCP server section */
+  .custom-mcp-section { margin-top: 1.75rem; border-top: 1px solid #2d3748; padding-top: 1.25rem; }
+  .custom-mcp-section h3 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: #718096; margin-bottom: 0.75rem; }
+  .custom-card {
+    border: 1px solid #2d3748;
+    border-radius: 8px;
+    padding: 0.65rem 1rem;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+  .custom-card-body { flex: 1; min-width: 0; }
+  .custom-card-name { font-weight: 600; font-size: 0.9rem; margin-bottom: 0.2rem; }
+  .custom-card-cmd { font-size: 0.75rem; color: #4a5568; font-family: monospace; }
+  .custom-card-env { font-size: 0.72rem; color: #718096; margin-top: 0.15rem; }
+  .btn-remove { background: none; border: none; cursor: pointer; color: #718096; font-size: 1rem; padding: 0; line-height: 1; flex-shrink: 0; }
+  .btn-remove:hover { color: #fc8181; opacity: 1; }
+  .custom-add-form {
+    border: 1px dashed #2d3748;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-top: 0.75rem;
+  }
+  .custom-add-form h4 { font-size: 0.85rem; font-weight: 600; color: #cbd5e0; margin-bottom: 0.75rem; }
+  .cmd-row { display: flex; gap: 0.5rem; }
+  .cmd-row select {
+    background: #0f1117;
+    border: 1px solid #2d3748;
+    border-radius: 8px;
+    color: #e2e8f0;
+    padding: 0.6rem 0.5rem;
+    font-size: 0.9rem;
+    min-width: 80px;
+  }
+  .env-add-row { display: flex; gap: 0.5rem; margin-bottom: 0.4rem; }
+  .env-add-row input { flex: 1; }
   /* Config preview */
   pre {
     background: #0f1117;
@@ -344,6 +381,21 @@ function generateToml() {
     }
   }
 
+  for (const s of state.custom_mcp_servers) {
+    const args = s.args.map(a => '"' + esc(a) + '"').join(', ');
+    toml += '\n[[mcp_servers]]\n';
+    toml += 'name = "' + esc(s.name) + '"\n';
+    toml += 'command = "' + esc(s.command) + '"\n';
+    toml += 'args = [' + args + ']\n';
+    const envEntries = Object.entries(s.env).filter(([k]) => k.trim());
+    if (envEntries.length > 0) {
+      toml += '[mcp_servers.env]\n';
+      for (const [k, v] of envEntries) {
+        toml += k + ' = "' + esc(v) + '"\n';
+      }
+    }
+  }
+
   return toml;
 }
 
@@ -438,6 +490,79 @@ async function loadExistingConfig() {
   } catch (_) {
     // Network error or JSON parse error — start with blank wizard
   }
+}
+
+// ── Custom MCP servers ──────────────────────────────────────────────────────
+
+function renderCustomMcpCards() {
+  const el = document.getElementById('custom-mcp-cards');
+  if (!el) return;
+  if (state.custom_mcp_servers.length === 0) {
+    el.innerHTML = '';
+    return;
+  }
+  el.innerHTML = state.custom_mcp_servers.map((s, i) => {
+    const cmd = escHtml(s.command) + (s.args.length ? ' ' + s.args.map(escHtml).join(' ') : '');
+    const envKeys = Object.keys(s.env);
+    return `<div class="custom-card">
+  <div class="custom-card-body">
+    <div class="custom-card-name">${escHtml(s.name)}</div>
+    <div class="custom-card-cmd">${cmd}</div>
+    ${envKeys.length ? `<div class="custom-card-env">ENV: ${envKeys.map(escHtml).join(', ')}</div>` : ''}
+  </div>
+  <button class="btn-remove" onclick="removeCustomServer(${i})" title="Remove">&#x2715;</button>
+</div>`;
+  }).join('');
+}
+
+function removeCustomServer(i) {
+  state.custom_mcp_servers.splice(i, 1);
+  renderCustomMcpCards();
+}
+
+function addCustomEnvRow() {
+  const container = document.getElementById('custom-env-rows');
+  const row = document.createElement('div');
+  row.className = 'env-add-row';
+  row.innerHTML = '<input type="text" placeholder="KEY" style="flex:1"><input type="text" placeholder="value" style="flex:2">';
+  container.appendChild(row);
+}
+
+function syncCustomCmd() {
+  const preset = document.getElementById('custom-cmd-preset').value;
+  const cmdInput = document.getElementById('custom-cmd');
+  if (preset !== 'custom') cmdInput.value = preset;
+  cmdInput.readOnly = preset !== 'custom';
+}
+
+function addCustomServer() {
+  const nameInput = document.getElementById('custom-name');
+  const name = nameInput.value.trim();
+  if (!name) {
+    nameInput.classList.add('error');
+    return;
+  }
+  nameInput.classList.remove('error');
+
+  const command = document.getElementById('custom-cmd').value.trim() || 'npx';
+  const argsRaw = document.getElementById('custom-args').value.trim();
+  const args = argsRaw ? argsRaw.split(/\s+/) : [];
+
+  const env = {};
+  document.getElementById('custom-env-rows').querySelectorAll('.env-add-row').forEach(row => {
+    const inputs = row.querySelectorAll('input');
+    const k = inputs[0]?.value.trim();
+    const v = inputs[1]?.value.trim();
+    if (k) env[k] = v || '';
+  });
+
+  state.custom_mcp_servers.push({ name, command, args, env });
+  renderCustomMcpCards();
+
+  // Reset form
+  nameInput.value = '';
+  document.getElementById('custom-args').value = '';
+  document.getElementById('custom-env-rows').innerHTML = '';
 }
 
 // ── Build HTML ─────────────────────────────────────────────────────────────────
@@ -556,6 +681,38 @@ function buildSteps() {
   html5 += `<div class="mcp-more">
     Want more tools? Browse the <a href="https://github.com/modelcontextprotocol/servers" target="_blank" rel="noopener">MCP server registry</a>
     or <a href="https://mcp.so/" target="_blank" rel="noopener">mcp.so</a> and add them manually in <code>config.toml</code>.
+  </div>
+  <div class="custom-mcp-section">
+    <h3>Custom Servers</h3>
+    <div id="custom-mcp-cards"></div>
+    <div class="custom-add-form">
+      <h4>Add Custom Server</h4>
+      <div class="field">
+        <label>Name</label>
+        <input type="text" id="custom-name" placeholder="my-server">
+      </div>
+      <div class="field">
+        <label>Command</label>
+        <div class="cmd-row">
+          <select id="custom-cmd-preset" onchange="syncCustomCmd()">
+            <option value="npx">npx</option>
+            <option value="uvx">uvx</option>
+            <option value="custom">custom...</option>
+          </select>
+          <input type="text" id="custom-cmd" value="npx" style="flex:1">
+        </div>
+      </div>
+      <div class="field">
+        <label>Args <span class="hint">&#8212; space-separated</span></label>
+        <input type="text" id="custom-args" placeholder="-y my-mcp-package">
+      </div>
+      <div class="field">
+        <label>Env Vars <span class="hint">&#8212; optional</span></label>
+        <div id="custom-env-rows"></div>
+        <button type="button" class="btn-secondary" onclick="addCustomEnvRow()" style="margin-top:0.4rem;padding:0.3rem 0.75rem;font-size:0.8rem">+ Add env var</button>
+      </div>
+      <button type="button" class="btn-primary" onclick="addCustomServer()">Add Server</button>
+    </div>
   </div>`;
   html5 += `</div>`;
   c.innerHTML += html5;
@@ -594,6 +751,7 @@ function buildSteps() {
 async function init() {
   await loadExistingConfig();
   buildSteps();
+  renderCustomMcpCards();   // populate pre-loaded custom servers into the DOM
   if (state._loaded) {
     document.getElementById('existing-banner').style.display = 'block';
   }
