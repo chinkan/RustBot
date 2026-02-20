@@ -11,7 +11,7 @@ allowed_user_ids = [123456789]
 # Get your API key from https://openrouter.ai/keys
 api_key = "YOUR_OPENROUTER_API_KEY"
 # Model to use (see https://openrouter.ai/models)
-model = "qwen/qwen3-235b-a22b"
+model = "moonshotai/kimi-k2.5"
 # API base URL (usually no need to change)
 base_url = "https://openrouter.ai/api/v1"
 # Maximum tokens in response
