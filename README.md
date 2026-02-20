@@ -49,9 +49,9 @@ The wizard will ask for your:
 ### 3. Run
 
 ```bash
-cargo run
+cargo run --bin rustbot
 # or with a custom config path:
-cargo run -- /path/to/config.toml
+cargo run --bin rustbot -- /path/to/config.toml
 ```
 
 ## Configuration
