@@ -17,6 +17,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use std::{
+    collections::HashMap,
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -45,6 +46,79 @@ struct SaveRequest {
 struct SaveResponse {
     ok: bool,
     path: String,
+}
+
+// ── Load-config response ────────────────────────────────────────────────────
+
+#[derive(Serialize, Default)]
+struct ExistingConfig {
+    exists: bool,
+    telegram_token: String,
+    allowed_user_ids: String,   // "123, 456" — ready for the text input
+    openrouter_key: String,
+    model: String,
+    max_tokens: u32,        // 0 = not set; frontend treats falsy as "use wizard default (4096)"
+    system_prompt: String,
+    location: String,
+    sandbox_dir: String,
+    db_path: String,
+    mcp_servers: Vec<ExistingMcpServer>,
+}
+
+#[derive(Serialize, Default, Clone)]
+struct ExistingMcpServer {
+    name: String,
+    command: String,
+    args: Vec<String>,
+    #[serde(default)]
+    env: HashMap<String, String>,
+}
+
+// ── Raw TOML parse structs (loose — all fields optional so partial configs load) ──
+
+#[derive(Deserialize, Default)]
+struct RawConfig {
+    telegram: Option<RawTelegram>,
+    openrouter: Option<RawOpenRouter>,
+    sandbox: Option<RawSandbox>,
+    memory: Option<RawMemory>,
+    location: Option<String>,      // top-level field in Config struct
+    #[serde(default)]
+    mcp_servers: Vec<RawMcpServer>,
+}
+
+#[derive(Deserialize, Default)]
+struct RawTelegram {
+    bot_token: Option<String>,
+    allowed_user_ids: Option<Vec<toml::Value>>,
+}
+
+#[derive(Deserialize, Default)]
+struct RawOpenRouter {
+    api_key: Option<String>,
+    model: Option<String>,
+    max_tokens: Option<u32>,
+    system_prompt: Option<String>,
+}
+
+#[derive(Deserialize, Default)]
+struct RawSandbox {
+    allowed_directory: Option<String>,
+}
+
+#[derive(Deserialize, Default)]
+struct RawMemory {
+    database_path: Option<String>,
+}
+
+#[derive(Deserialize, Default)]
+struct RawMcpServer {
+    name: Option<String>,
+    command: Option<String>,
+    #[serde(default)]
+    args: Vec<String>,
+    #[serde(default)]
+    env: HashMap<String, String>,
 }
 
 // ── Handlers ───────────────────────────────────────────────────────────────────
