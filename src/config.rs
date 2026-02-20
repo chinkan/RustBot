@@ -15,6 +15,8 @@ pub struct Config {
     pub skills: SkillsConfig,
     #[serde(default)]
     pub general: Option<GeneralConfig>,
+    #[serde(default = "default_agent_config")]
+    pub agent: AgentConfig,
     pub embedding: Option<EmbeddingApiConfig>,
 }
 
@@ -82,6 +84,12 @@ pub struct GeneralConfig {
     pub location: Option<String>,
 }
 
+#[derive(Debug, Deserialize, Clone)]
+pub struct AgentConfig {
+    #[serde(default = "default_max_iterations")]
+    pub max_iterations: u32,
+}
+
 fn default_model() -> String {
     "moonshotai/kimi-k2.5".to_string()
 }
@@ -133,10 +141,25 @@ fn default_skills_config() -> SkillsConfig {
     }
 }
 
+fn default_max_iterations() -> u32 {
+    25
+}
+
+fn default_agent_config() -> AgentConfig {
+    AgentConfig {
+        max_iterations: default_max_iterations(),
+    }
+}
+
 impl Config {
     /// Location string from [general], injected into the system prompt.
     pub fn user_location(&self) -> Option<&str> {
         self.general.as_ref().and_then(|g| g.location.as_deref())
+    }
+
+    /// Maximum agent loop iterations (from [agent] max_iterations, default 25).
+    pub fn max_iterations(&self) -> u32 {
+        self.agent.max_iterations
     }
 
     pub fn load(path: &Path) -> Result<Self> {

@@ -139,7 +139,7 @@ impl Agent {
         all_tools.extend(self.scheduling_tool_definitions());
 
         // Agentic loop — keep calling LLM until we get a non-tool response
-        let max_iterations = 10;
+        let max_iterations = self.config.max_iterations();
         for iteration in 0..max_iterations {
             let response = self.llm.chat(&messages, &all_tools).await?;
 

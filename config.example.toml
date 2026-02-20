@@ -42,6 +42,10 @@ directory = "skills"
 # Uncomment and set to your city/region (e.g. "Tokyo, Japan")
 # location = "Tokyo, Japan"
 
+# Agent loop (optional; defaults apply if section omitted)
+# [agent]
+# max_iterations = 25   # Agent loop cap (default 25)
+
 # Embedding API for vector search (optional)
 # When configured, enables hybrid vector + FTS5 search for memory.
 # Without this, falls back to FTS5 keyword search only.
