@@ -1,6 +1,10 @@
-# RustBot — Telegram AI Assistant
+<p align="center">
+  <img src="assets/logo.png" alt="RustFox Logo" width="200"/>
+</p>
 
-[![CI](https://github.com/chinkan/RustBot/actions/workflows/ci.yml/badge.svg)](https://github.com/chinkan/RustBot/actions)
+# RustFox — Telegram AI Assistant
+
+[![CI](https://github.com/chinkan/RustFox/actions/workflows/ci.yml/badge.svg)](https://github.com/chinkan/RustFox/actions)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Buy Me a Coffee](https://img.shields.io/badge/buy%20me%20a%20coffee-%E2%98%95-yellow)](https://buymeacoffee.com/chinkan.ai)
 
@@ -50,9 +54,9 @@ The wizard will ask for your:
 ### 3. Run
 
 ```bash
-cargo run --bin rustbot
+cargo run --bin rustfox
 # or with a custom config path:
-cargo run --bin rustbot -- /path/to/config.toml
+cargo run --bin rustfox -- /path/to/config.toml
 ```
 
 ## Configuration
@@ -68,7 +72,7 @@ See [`config.example.toml`](config.example.toml) for all options.
 | `openrouter.api_key` | OpenRouter API key |
 | `openrouter.model` | LLM model ID (default: `moonshotai/kimi-k2.5`) |
 | `sandbox.allowed_directory` | Directory for file/command operations |
-| `memory.database_path` | SQLite DB path (default: `rustbot.db`) |
+| `memory.database_path` | SQLite DB path (default: `rustfox.db`) |
 | `embedding` (optional) | Vector search API config (default model: `qwen/qwen3-embedding-8b`) |
 | `skills.directory` | Folder of bot skill files (default: `skills/`) |
 | `mcp_servers` | List of MCP servers to connect |
@@ -76,7 +80,7 @@ See [`config.example.toml`](config.example.toml) for all options.
 
 ### MCP Server Configuration
 
-RustBot supports the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) — an open standard for connecting AI assistants to external tools and data sources. Any MCP-compatible server can be plugged in via `config.toml`.
+RustFox supports the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) — an open standard for connecting AI assistants to external tools and data sources. Any MCP-compatible server can be plugged in via `config.toml`.
 
 #### Prerequisites
 
@@ -217,7 +221,7 @@ This project is open source under the [MIT License](LICENSE). Contributions are 
 
 ## Support
 
-If you find RustBot useful, consider supporting the project:
+If you find RustFox useful, consider supporting the project:
 
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-%E2%98%95-yellow?style=for-the-badge&logo=buy-me-a-coffee)](https://buymeacoffee.com/chinkan.ai)
 
