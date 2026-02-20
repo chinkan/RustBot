@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Transform RustBot from a Telegram-only AI chatbot into a modular AI agent framework with persistent memory, markdown-based skills, multi-platform support, and proactive background task scheduling.
+**Goal:** Transform RustFox from a Telegram-only AI chatbot into a modular AI agent framework with persistent memory, markdown-based skills, multi-platform support, and proactive background task scheduling.
 
 **Architecture:** Modular monolith with Cargo feature flags. Core agent logic extracted from `bot.rs` into a platform-agnostic `agent` module. Platform adapters (Telegram first, Discord-ready) implement a `Platform` trait. SQLite with FTS5 provides persistent conversations, knowledge base, and learning. Skills are natural-language markdown files loaded at runtime. Tokio-cron-scheduler handles background tasks.
 
@@ -543,7 +543,7 @@ pub struct MemoryConfig {
 }
 
 fn default_db_path() -> PathBuf {
-    PathBuf::from("rustbot.db")
+    PathBuf::from("rustfox.db")
 }
 ```
 
@@ -569,7 +569,7 @@ fn default_memory_config() -> MemoryConfig {
 ```toml
 [memory]
 # Path to the SQLite database file for persistent memory
-database_path = "rustbot.db"
+database_path = "rustfox.db"
 ```
 
 **Step 3: Verify it compiles**
@@ -2012,7 +2012,7 @@ async fn main() -> Result<()> {
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "info,rustbot=debug".into()),
+                .unwrap_or_else(|_| "info,rustfox=debug".into()),
         )
         .with(tracing_subscriber::fmt::layer())
         .init();

@@ -1,5 +1,5 @@
 [package]
-name = "rustbot"
+name = "rustfox"
 version = "0.1.0"
 edition = "2021"
 

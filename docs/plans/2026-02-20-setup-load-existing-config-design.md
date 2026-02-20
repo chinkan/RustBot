@@ -75,7 +75,7 @@ Store `config_path` (already present). The handler reads from the same path.
 
 ### `save_config` print fix
 
-Update the success `println!` to say `cargo run --bin rustbot` (already done in prior commit but `setup.rs` still has the old string — fix here).
+Update the success `println!` to say `cargo run --bin rustfox` (already done in prior commit but `setup.rs` still has the old string — fix here).
 
 ## Frontend Design (`setup/index.html`)
 

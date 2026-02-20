@@ -73,7 +73,7 @@ if [[ "${1:-}" == "--cli" ]]; then
   exit 0
 fi
 
-echo "Starting RustBot setup wizard at http://localhost:$PORT"
+echo "Starting RustFox setup wizard at http://localhost:$PORT"
 echo "Press Ctrl+C to exit."
 
 python3 "$SCRIPT_DIR/setup/server.py" "$PORT" "$SCRIPT_DIR" &
@@ -97,7 +97,7 @@ chmod +x setup.sh
 
 ```python
 #!/usr/bin/env python3
-"""Minimal HTTP server for RustBot setup wizard."""
+"""Minimal HTTP server for RustFox setup wizard."""
 import http.server
 import json
 import os
@@ -191,7 +191,7 @@ This task creates the skeleton: header, step container, navigation buttons, CSS.
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RustBot Setup</title>
+<title>RustFox Setup</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -324,8 +324,8 @@ const state = {
   max_tokens: '4096',
   system_prompt: `You are a helpful AI assistant with access to tools. Use the available tools to help the user with their tasks. When using file or terminal tools, operate only within the allowed sandbox directory. Be concise and helpful.`,
   location: '',
-  sandbox_dir: '/tmp/rustbot-sandbox',
-  db_path: 'rustbot.db',
+  sandbox_dir: '/tmp/rustfox-sandbox',
+  db_path: 'rustfox.db',
   mcp_selections: {},   // { toolName: { selected: bool, env: { KEY: val } } }
 };
 
@@ -512,7 +512,7 @@ function buildSteps() {
   // Step 1: Welcome
   container.innerHTML += `
 <div class="step" id="step-1">
-  <h1>Welcome to RustBot</h1>
+  <h1>Welcome to RustFox</h1>
   <p class="subtitle">Your personal AI assistant on Telegram, powered by OpenRouter LLMs and extensible via MCP tools.<br><br>This wizard will guide you through creating your <code>config.toml</code> in about 2 minutes.</p>
 </div>`;
 
@@ -566,11 +566,11 @@ function buildSteps() {
   <h2>Sandbox &amp; Memory</h2>
   <div class="field">
     <label>Sandbox Directory <span class="hint">— bot's file/command scope</span></label>
-    <input type="text" id="f-sandbox-dir" value="/tmp/rustbot-sandbox">
+    <input type="text" id="f-sandbox-dir" value="/tmp/rustfox-sandbox">
   </div>
   <div class="field">
     <label>Memory Database Path</label>
-    <input type="text" id="f-db-path" value="rustbot.db">
+    <input type="text" id="f-db-path" value="rustfox.db">
   </div>
 </div>`;
 
@@ -672,7 +672,7 @@ Replace the `--cli` block in `setup.sh`:
 
 ```bash
 if [[ "${1:-}" == "--cli" ]]; then
-  echo "=== RustBot CLI Setup ==="
+  echo "=== RustFox CLI Setup ==="
   echo ""
 
   read -rp "Telegram bot token: " TG_TOKEN
@@ -680,10 +680,10 @@ if [[ "${1:-}" == "--cli" ]]; then
   read -rp "OpenRouter API key: " OR_KEY
   read -rp "Model [qwen/qwen3-235b-a22b]: " OR_MODEL
   OR_MODEL="${OR_MODEL:-qwen/qwen3-235b-a22b}"
-  read -rp "Sandbox directory [/tmp/rustbot-sandbox]: " SANDBOX
-  SANDBOX="${SANDBOX:-/tmp/rustbot-sandbox}"
-  read -rp "Memory DB path [rustbot.db]: " DBPATH
-  DBPATH="${DBPATH:-rustbot.db}"
+  read -rp "Sandbox directory [/tmp/rustfox-sandbox]: " SANDBOX
+  SANDBOX="${SANDBOX:-/tmp/rustfox-sandbox}"
+  read -rp "Memory DB path [rustfox.db]: " DBPATH
+  DBPATH="${DBPATH:-rustfox.db}"
   read -rp "Your location (optional, e.g. Tokyo, Japan): " LOCATION
 
   IDS_ARR=$(echo "$USER_IDS" | tr ',' '\n' | tr -d ' ' | paste -sd ', ')

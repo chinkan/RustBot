@@ -347,7 +347,7 @@ println!("   Run the bot with:  cargo run\n");
 ```
 to:
 ```rust
-println!("   Run the bot with:  cargo run --bin rustbot\n");
+println!("   Run the bot with:  cargo run --bin rustfox\n");
 ```
 
 ### Step 4: Verify
@@ -417,8 +417,8 @@ const state = {
   max_tokens: '4096',
   system_prompt: 'You are a helpful AI assistant ...',
   location: '',
-  sandbox_dir: '/tmp/rustbot-sandbox',
-  db_path: 'rustbot.db',
+  sandbox_dir: '/tmp/rustfox-sandbox',
+  db_path: 'rustfox.db',
   mcp_selections: {},
   custom_mcp_servers: [],  // NEW
   _loaded: false,          // NEW — true when existing config was found
@@ -497,7 +497,7 @@ In the step-1 template inside `buildSteps()`, add the banner div right before th
 **Before:**
 ```js
   c.innerHTML += `<div class="step" id="step-1">
-  <h1>Welcome to RustBot</h1>
+  <h1>Welcome to RustFox</h1>
   <p class="subtitle">
     Your personal AI assistant on Telegram, powered by OpenRouter LLMs and extensible via MCP tools.<br><br>
     This wizard creates your <code>config.toml</code> in about 2 minutes.
@@ -509,7 +509,7 @@ In the step-1 template inside `buildSteps()`, add the banner div right before th
 **After:**
 ```js
   c.innerHTML += `<div class="step" id="step-1">
-  <h1>Welcome to RustBot</h1>
+  <h1>Welcome to RustFox</h1>
   <p class="subtitle">
     Your personal AI assistant on Telegram, powered by OpenRouter LLMs and extensible via MCP tools.<br><br>
     This wizard creates your <code>config.toml</code> in about 2 minutes.
@@ -594,9 +594,9 @@ function esc(s) {
 ### Step 3: Pre-fill step 4 (Sandbox & Memory)
 
 ```js
-    <input type="text" id="f-sandbox-dir" value="${esc(state.sandbox_dir || '/tmp/rustbot-sandbox')}">
+    <input type="text" id="f-sandbox-dir" value="${esc(state.sandbox_dir || '/tmp/rustfox-sandbox')}">
     ...
-    <input type="text" id="f-db-path" value="${esc(state.db_path || 'rustbot.db')}">
+    <input type="text" id="f-db-path" value="${esc(state.db_path || 'rustfox.db')}">
 ```
 
 ### Step 4: Pre-check catalog MCP checkboxes

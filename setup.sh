@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# RustBot setup wizard entry point.
+# RustFox setup wizard entry point.
 #
 # Usage:
 #   ./setup.sh          # Opens browser-based wizard on http://localhost:8719
@@ -16,4 +16,4 @@ if [[ ! -f "$BINARY" ]] || [[ "$SCRIPT_DIR/src/bin/setup.rs" -nt "$BINARY" ]] ||
     cargo build --release --bin setup --manifest-path "$SCRIPT_DIR/Cargo.toml"
 fi
 
-RUSTBOT_ROOT="$SCRIPT_DIR" "$BINARY" "$@"
+RUSTFOX_ROOT="$SCRIPT_DIR" "$BINARY" "$@"
