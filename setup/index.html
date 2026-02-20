@@ -194,6 +194,8 @@ const state = {
   sandbox_dir: '/tmp/rustbot-sandbox',
   db_path: 'rustbot.db',
   mcp_selections: {},
+  custom_mcp_servers: [],  // populated from existing config's non-catalog MCP servers
+  _loaded: false,          // true when an existing config was successfully loaded
 };
 
 // ── Step navigation ────────────────────────────────────────────────────────────
@@ -387,6 +389,46 @@ function setEnv(tool, key, val) {
   state.mcp_selections[tool].env[key] = val;
 }
 
+// ── Load existing config ────────────────────────────────────────────────────────
+async function loadExistingConfig() {
+  try {
+    const res = await fetch('/api/load-config');
+    if (!res.ok) return;
+    const cfg = await res.json();
+    if (!cfg.exists) return;
+
+    // Populate scalar state fields (non-empty values win over defaults)
+    if (cfg.telegram_token)   state.telegram_token   = cfg.telegram_token;
+    if (cfg.allowed_user_ids) state.allowed_user_ids = cfg.allowed_user_ids;
+    if (cfg.openrouter_key)   state.openrouter_key   = cfg.openrouter_key;
+    if (cfg.model)            state.model            = cfg.model;
+    if (cfg.max_tokens)       state.max_tokens       = String(cfg.max_tokens);
+    if (cfg.system_prompt)    state.system_prompt    = cfg.system_prompt;
+    if (cfg.location)         state.location         = cfg.location;
+    if (cfg.sandbox_dir)      state.sandbox_dir      = cfg.sandbox_dir;
+    if (cfg.db_path)          state.db_path          = cfg.db_path;
+
+    // Split MCP servers: catalog-matched vs custom
+    for (const s of (cfg.mcp_servers || [])) {
+      const inCatalog = MCP_CATALOG.find(c => c.name === s.name);
+      if (inCatalog) {
+        state.mcp_selections[s.name] = { selected: true, env: s.env || {} };
+      } else {
+        state.custom_mcp_servers.push({
+          name: s.name,
+          command: s.command,
+          args: s.args || [],
+          env: s.env || {},
+        });
+      }
+    }
+
+    state._loaded = true;
+  } catch (_) {
+    // Network error or JSON parse error — start with blank wizard
+  }
+}
+
 // ── Build HTML ─────────────────────────────────────────────────────────────────
 function buildSteps() {
   const c = document.getElementById('steps-container');
@@ -399,6 +441,9 @@ function buildSteps() {
     This wizard creates your <code>config.toml</code> in about 2 minutes.
     You can always edit it by hand afterwards.
   </p>
+  <div id="existing-banner" style="display:none;background:#1a2744;border:1px solid #2b4a8a;border-radius:8px;padding:0.75rem 1rem;font-size:0.85rem;color:#90cdf4">
+    <strong style="color:#bee3f8">Editing existing configuration</strong> — all fields pre-loaded from <code>config.toml</code>.
+  </div>
 </div>`;
 
   // Step 2: Telegram
@@ -530,8 +575,15 @@ function buildSteps() {
 </div>`;
 }
 
-buildSteps();
-showStep(1);
+async function init() {
+  await loadExistingConfig();
+  buildSteps();
+  if (state._loaded) {
+    document.getElementById('existing-banner').style.display = 'block';
+  }
+  showStep(1);
+}
+init();
 </script>
 </body>
 </html>
