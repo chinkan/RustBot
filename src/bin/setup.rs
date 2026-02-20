@@ -340,7 +340,7 @@ fn parse_existing_config(content: &str) -> ExistingConfig {
     };
 
     let tg = raw.telegram.unwrap_or_default();
-    let or = raw.openrouter.unwrap_or_default();
+    let openrouter = raw.openrouter.unwrap_or_default();
     let sb = raw.sandbox.unwrap_or_default();
     let mem = raw.memory.unwrap_or_default();
 
@@ -360,8 +360,9 @@ fn parse_existing_config(content: &str) -> ExistingConfig {
         .mcp_servers
         .into_iter()
         .filter_map(|s| {
+            let name = s.name.filter(|n| !n.is_empty())?;
             Some(ExistingMcpServer {
-                name: s.name?,
+                name,
                 command: s.command.unwrap_or_default(),
                 args: s.args,
                 env: s.env,
@@ -373,10 +374,10 @@ fn parse_existing_config(content: &str) -> ExistingConfig {
         exists: true,
         telegram_token: tg.bot_token.unwrap_or_default(),
         allowed_user_ids,
-        openrouter_key: or.api_key.unwrap_or_default(),
-        model: or.model.unwrap_or_default(),
-        max_tokens: or.max_tokens.unwrap_or(0), // 0 = not set; frontend treats falsy as "use wizard default (4096)"
-        system_prompt: or.system_prompt.unwrap_or_default(),
+        openrouter_key: openrouter.api_key.unwrap_or_default(),
+        model: openrouter.model.unwrap_or_default(),
+        max_tokens: openrouter.max_tokens.unwrap_or(0),
+        system_prompt: openrouter.system_prompt.unwrap_or_default(),
         location: raw.location.unwrap_or_default(),
         sandbox_dir: sb.allowed_directory.unwrap_or_default(),
         db_path: mem.database_path.unwrap_or_default(),
@@ -391,7 +392,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_missing_file_returns_not_exists() {
+    fn test_parse_invalid_toml_returns_not_exists() {
         let cfg = parse_existing_config("this is not valid toml !!!");
         assert!(!cfg.exists);
     }
@@ -462,12 +463,13 @@ BRAVE_API_KEY = "brave123"
         assert_eq!(cfg.mcp_servers[0].name, "git");
         assert_eq!(cfg.mcp_servers[0].command, "uvx");
         assert_eq!(cfg.mcp_servers[0].args, vec!["mcp-server-git"]);
+        assert!(cfg.mcp_servers[0].env.is_empty());
         assert_eq!(cfg.mcp_servers[1].name, "brave-search");
         assert_eq!(cfg.mcp_servers[1].env.get("BRAVE_API_KEY").unwrap(), "brave123");
     }
 
     #[test]
-    fn test_parse_partial_config_no_panic() {
+    fn test_parse_partial_config_missing_sections_default_to_empty() {
         // Only telegram section — all other fields should be defaults
         let toml = r#"
 [telegram]
@@ -479,6 +481,25 @@ allowed_user_ids = [42]
         assert_eq!(cfg.telegram_token, "partial");
         assert_eq!(cfg.model, "");        // no default injected — that's the wizard's job
         assert_eq!(cfg.sandbox_dir, "");
+    }
+
+    #[test]
+    fn test_parse_string_user_ids() {
+        // String-typed IDs in TOML (toml::Value::String arm)
+        let toml = r#"
+[telegram]
+bot_token = "t"
+allowed_user_ids = ["111", "222"]
+
+[openrouter]
+api_key = "k"
+
+[sandbox]
+allowed_directory = "/tmp"
+"#;
+        let cfg = parse_existing_config(toml);
+        assert!(cfg.exists);
+        assert_eq!(cfg.allowed_user_ids, "111, 222");
     }
 
     fn cfg(
