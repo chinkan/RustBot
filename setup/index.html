@@ -178,7 +178,7 @@ const MCP_CATALOG = [
   { name:'memory',           category:'Knowledge & Data',   desc:'Persistent cross-session memory graph',        runner:'npx', args:['-y','@anthropic/mcp-memory'],                    envVars:[],                                           link:'https://www.npmjs.com/package/@anthropic/mcp-memory' },
   { name:'tavily',           category:'Knowledge & Data',   desc:'AI-optimised semantic web search',             runner:'npx', args:['-y','tavily-mcp'],                               envVars:['TAVILY_API_KEY'],                           link:'https://www.npmjs.com/package/tavily-mcp' },
   { name:'context7',         category:'Knowledge & Data',   desc:'Live library documentation fetching',          runner:'npx', args:['-y','@upstash/context7-mcp'],                    envVars:[],                                           link:'https://www.npmjs.com/package/@upstash/context7-mcp' },
-  { name:'open-meteo',       category:'Weather & Location', desc:'Free weather forecasts, no API key needed',   runner:'npx', args:['-y','open-meteo-mcp'],                            envVars:[],                                           link:'https://www.npmjs.com/package/open-meteo-mcp' },
+  { name:'open-meteo',       category:'Weather & Location', desc:'Free weather forecasts, no API key needed',   runner:'npx', args:['-y','-p','open-meteo-mcp-server','open-meteo-mcp-server'], envVars:[],                                      link:'https://www.npmjs.com/package/open-meteo-mcp-server' },
   { name:'openweathermap',   category:'Weather & Location', desc:'Current weather and forecasts',                runner:'npx', args:['-y','openweathermap-mcp'],                       envVars:['OPENWEATHERMAP_API_KEY'],                   link:'https://www.npmjs.com/package/openweathermap-mcp' },
 ];
 
@@ -197,23 +197,32 @@ const state = {
 };
 
 // ── Step navigation ────────────────────────────────────────────────────────────
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 7;
 let currentStep = 1;
 
 function showStep(n) {
   document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
   document.getElementById('step-' + n).classList.add('active');
   currentStep = n;
-  const pct = (n / TOTAL_STEPS * 100).toFixed(1);
+  const WIZARD_STEPS = TOTAL_STEPS - 1; // step 7 is the done page, not a wizard step
+  if (n === TOTAL_STEPS) {
+    document.getElementById('progress-fill').style.width = '100%';
+    document.getElementById('progress-label').textContent = 'Setup complete!';
+    document.getElementById('btn-back').style.display = 'none';
+    document.getElementById('btn-next').style.display = 'none';
+    return;
+  }
+  const pct = (n / WIZARD_STEPS * 100).toFixed(1);
   document.getElementById('progress-fill').style.width = pct + '%';
-  document.getElementById('progress-label').textContent = 'Step ' + n + ' of ' + TOTAL_STEPS;
+  document.getElementById('progress-label').textContent = 'Step ' + n + ' of ' + WIZARD_STEPS;
   document.getElementById('btn-back').style.display = n > 1 ? 'inline-block' : 'none';
   const btnNext = document.getElementById('btn-next');
+  btnNext.style.display = 'inline-block';
   btnNext.disabled = false;
   if (n === 1) { btnNext.textContent = 'Get Started →'; }
-  else if (n === TOTAL_STEPS) { btnNext.textContent = 'Save config.toml'; }
+  else if (n === WIZARD_STEPS) { btnNext.textContent = 'Save config.toml'; }
   else { btnNext.textContent = 'Continue →'; }
-  if (n === TOTAL_STEPS) renderPreview();
+  if (n === WIZARD_STEPS) renderPreview();
 }
 
 function prevStep() { if (currentStep > 1) showStep(currentStep - 1); }
@@ -221,7 +230,7 @@ function prevStep() { if (currentStep > 1) showStep(currentStep - 1); }
 function nextStep() {
   if (!validateStep(currentStep)) return;
   collectStep(currentStep);
-  if (currentStep === TOTAL_STEPS) { saveConfig(); return; }
+  if (currentStep === TOTAL_STEPS - 1) { saveConfig(); return; }
   showStep(currentStep + 1);
 }
 
@@ -344,7 +353,7 @@ async function saveConfig() {
     });
     const data = await res.json();
     if (data.ok) {
-      document.getElementById('success-msg').classList.add('visible');
+      showStep(TOTAL_STEPS);
     } else {
       btn.disabled = false;
       alert('Server error saving config.');
@@ -497,8 +506,26 @@ function buildSteps() {
     Generated <code>config.toml</code> — will be written to the project root.
   </p>
   <pre id="config-preview"></pre>
-  <div class="success-msg" id="success-msg">
-    ✓ config.toml saved! You can now run: <code>cargo run</code>
+</div>`;
+
+  // Step 7: Done / Support
+  c.innerHTML += `<div class="step" id="step-7">
+  <h1 style="margin-bottom:0.5rem">You're all set!</h1>
+  <p class="subtitle">
+    <code>config.toml</code> has been saved to the project root.<br>
+    Start your bot with:
+  </p>
+  <pre style="margin-bottom:2rem;text-align:center;font-size:0.95rem;color:#e2e8f0">cargo run --bin rustbot</pre>
+  <p style="color:#718096;font-size:0.85rem;margin-bottom:1.25rem;text-align:center">
+    If you find RustBot useful, consider supporting the project:
+  </p>
+  <div style="display:flex;flex-direction:column;gap:0.875rem;align-items:center">
+    <a href="https://buymeacoffee.com/chinkan.ai" target="_blank" rel="noopener">
+      <img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-%E2%98%95-yellow?style=for-the-badge&logo=buy-me-a-coffee" alt="Buy Me a Coffee" style="height:40px">
+    </a>
+    <a href="https://github.com/sponsors/chinkan" target="_blank" rel="noopener">
+      <img src="https://img.shields.io/badge/GitHub%20Sponsors-%E2%9D%A4-pink?style=for-the-badge&logo=github" alt="GitHub Sponsors" style="height:40px">
+    </a>
   </div>
 </div>`;
 }
