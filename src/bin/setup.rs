@@ -82,7 +82,7 @@ struct RawConfig {
     openrouter: Option<RawOpenRouter>,
     sandbox: Option<RawSandbox>,
     memory: Option<RawMemory>,
-    location: Option<String>,      // top-level field in Config struct
+    general: Option<RawGeneral>,
     #[serde(default)]
     mcp_servers: Vec<RawMcpServer>,
 }
@@ -109,6 +109,11 @@ struct RawSandbox {
 #[derive(Deserialize, Default)]
 struct RawMemory {
     database_path: Option<String>,
+}
+
+#[derive(Deserialize, Default)]
+struct RawGeneral {
+    location: Option<String>,
 }
 
 #[derive(Deserialize, Default)]
@@ -218,6 +223,7 @@ database_path = "{db_path}"
 [skills]
 directory = "skills"
 
+[general]
 {loc_line}
 "#
     )
@@ -387,7 +393,11 @@ fn parse_existing_config(content: &str) -> ExistingConfig {
         model: openrouter.model.unwrap_or_default(),
         max_tokens: openrouter.max_tokens.unwrap_or(0),
         system_prompt: openrouter.system_prompt.unwrap_or_default(),
-        location: raw.location.unwrap_or_default(),
+        location: raw
+            .general
+            .as_ref()
+            .and_then(|g| g.location.clone())
+            .unwrap_or_default(),
         sandbox_dir: sb.allowed_directory.unwrap_or_default(),
         db_path: mem.database_path.unwrap_or_default(),
         mcp_servers,
@@ -409,8 +419,6 @@ mod tests {
     #[test]
     fn test_parse_full_config() {
         let toml = r#"
-location = "Tokyo, Japan"
-
 [telegram]
 bot_token = "mytoken123"
 allowed_user_ids = [111, 222]
@@ -426,6 +434,9 @@ allowed_directory = "/tmp/test"
 
 [memory]
 database_path = "test.db"
+
+[general]
+location = "Tokyo, Japan"
 "#;
         let cfg = parse_existing_config(toml);
         assert!(cfg.exists);
@@ -462,7 +473,7 @@ args = ["mcp-server-git"]
 [[mcp_servers]]
 name = "brave-search"
 command = "npx"
-args = ["-y", "@anthropic/mcp-brave-search"]
+args = ["-y", "@brave/brave-search-mcp-server"]
 [mcp_servers.env]
 BRAVE_API_KEY = "brave123"
 "#;
@@ -552,22 +563,22 @@ allowed_directory = "/tmp"
     #[test]
     fn test_location_included_when_set() {
         let out = cfg("t", "1", "k", "m", "/tmp", "db.db", "Tokyo, Japan");
+        assert!(out.contains("[general]"));
         assert!(out.contains(r#"location = "Tokyo, Japan""#));
-        // location must be at top level — after [skills], not inside [openrouter]
-        let skills_pos = out.find("[skills]").expect("[skills] not found in output");
+        let general_pos = out.find("[general]").expect("[general] not found");
         let location_pos = out.find(r#"location = "Tokyo, Japan""#).expect("location not found");
-        assert!(location_pos > skills_pos, "location must appear after [skills] section");
+        assert!(location_pos > general_pos, "location must appear under [general]");
     }
 
     #[test]
     fn test_location_commented_when_empty() {
         let out = cfg("t", "1", "k", "m", "/tmp", "db.db", "");
+        assert!(out.contains("[general]"));
         assert!(out.contains("# location ="));
         assert!(!out.contains("\nlocation = "));
-        // commented location must also be at top level
-        let skills_pos = out.find("[skills]").expect("[skills] not found");
+        let general_pos = out.find("[general]").expect("[general] not found");
         let location_pos = out.find("# location =").expect("# location not found");
-        assert!(location_pos > skills_pos, "location must appear after [skills] section");
+        assert!(location_pos > general_pos, "commented location must appear under [general]");
     }
 
     #[test]

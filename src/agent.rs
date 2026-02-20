@@ -84,7 +84,7 @@ impl Agent {
             .format("%Y-%m-%d %H:%M:%S UTC")
             .to_string();
         prompt.push_str(&format!("\n\nCurrent date and time: {}", now));
-        if let Some(ref loc) = self.config.location {
+        if let Some(loc) = self.config.user_location() {
             prompt.push_str(&format!("\nUser location: {}", loc));
         }
 

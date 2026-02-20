@@ -37,6 +37,7 @@ database_path = "rustbot.db"
 # Skills are natural-language instructions loaded at startup
 directory = "skills"
 
+[general]
 # Your location, injected into the system prompt so the AI knows your timezone/region
 # Uncomment and set to your city/region (e.g. "Tokyo, Japan")
 # location = "Tokyo, Japan"
@@ -71,6 +72,6 @@ directory = "skills"
 # [[mcp_servers]]
 # name = "brave-search"
 # command = "npx"
-# args = ["-y", "@anthropic/mcp-brave-search"]
+# args = ["-y", "@brave/brave-search-mcp-server"]
 # [mcp_servers.env]
 # BRAVE_API_KEY = "your-brave-api-key"

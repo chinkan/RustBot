@@ -190,7 +190,7 @@ args = ["mcp-server-git"]
 [[mcp_servers]]
 name = "brave-search"
 command = "npx"
-args = ["-y", "@anthropic/mcp-brave-search"]
+args = ["-y", "@brave/brave-search-mcp-server"]
 [mcp_servers.env]
 BRAVE_API_KEY = "brave123"
 "#;

@@ -28,18 +28,18 @@ Used in Task 7. Each entry: `{ name, category, description, command, runner, arg
 | name | category | runner | package/cmd | envVars |
 |---|---|---|---|---|
 | playwright | Browser & Web | npx | @playwright/mcp | — |
-| brave-search | Browser & Web | npx | @anthropic/mcp-brave-search | BRAVE_API_KEY |
+| brave-search | Browser & Web | npx | @brave/brave-search-mcp-server | BRAVE_API_KEY |
 | firecrawl | Browser & Web | npx | firecrawl-mcp | FIRECRAWL_API_KEY |
 | fetch | Browser & Web | uvx | mcp-server-fetch | — |
 | google-workspace | Productivity | uvx | google-workspace-mcp | GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET |
 | notion | Productivity | npx | @notionhq/notion-mcp-server | NOTION_API_KEY |
 | obsidian | Productivity | npx | obsidian-mcp | — |
-| slack | Communication | npx | @anthropic/mcp-slack | SLACK_BOT_TOKEN |
+| slack | Communication | npx | @modelcontextprotocol/server-slack | SLACK_BOT_TOKEN |
 | discord | Communication | npx | discord-mcp | DISCORD_TOKEN |
-| github | Developer Tools | npx | @anthropic/mcp-github | GITHUB_TOKEN |
+| github | Developer Tools | npx | @modelcontextprotocol/server-github | GITHUB_TOKEN |
 | git | Developer Tools | uvx | mcp-server-git | — |
 | filesystem | Developer Tools | npx | @modelcontextprotocol/server-filesystem | — |
-| memory | Knowledge & Data | npx | @anthropic/mcp-memory | — |
+| memory | Knowledge & Data | npx | @modelcontextprotocol/server-memory | — |
 | tavily | Knowledge & Data | npx | tavily-mcp | TAVILY_API_KEY |
 | context7 | Knowledge & Data | npx | @upstash/context7-mcp | — |
 | open-meteo | Weather & Location | npx | open-meteo-mcp | — |
@@ -487,18 +487,18 @@ async function saveConfig() {
 // ── MCP Catalog ────────────────────────────────────────────────────────────────
 const MCP_CATALOG = [
   { name:'playwright',      category:'🌐 Browser & Web',       desc:'Browser automation & web scraping',             runner:'npx', args:['-y','@playwright/mcp'],                           envVars:[] },
-  { name:'brave-search',    category:'🌐 Browser & Web',       desc:'Real-time web search',                          runner:'npx', args:['-y','@anthropic/mcp-brave-search'],               envVars:['BRAVE_API_KEY'] },
+  { name:'brave-search',    category:'🌐 Browser & Web',       desc:'Real-time web search',                          runner:'npx', args:['-y','@brave/brave-search-mcp-server'],               envVars:['BRAVE_API_KEY'] },
   { name:'firecrawl',       category:'🌐 Browser & Web',       desc:'URL → clean Markdown scraping',                 runner:'npx', args:['-y','firecrawl-mcp'],                             envVars:['FIRECRAWL_API_KEY'] },
   { name:'fetch',           category:'🌐 Browser & Web',       desc:'Lightweight page fetching',                     runner:'uvx', args:['mcp-server-fetch'],                               envVars:[] },
   { name:'google-workspace',category:'📁 Productivity',        desc:'Gmail, Calendar, Drive, Docs',                  runner:'uvx', args:['google-workspace-mcp'],                           envVars:['GOOGLE_CLIENT_ID','GOOGLE_CLIENT_SECRET'] },
   { name:'notion',          category:'📁 Productivity',        desc:'Read/write Notion workspace',                   runner:'npx', args:['-y','@notionhq/notion-mcp-server'],               envVars:['NOTION_API_KEY'] },
   { name:'obsidian',        category:'📁 Productivity',        desc:'Local Obsidian vault access',                   runner:'npx', args:['-y','obsidian-mcp'],                              envVars:[] },
-  { name:'slack',           category:'💬 Communication',       desc:'Read channels, post messages',                  runner:'npx', args:['-y','@anthropic/mcp-slack'],                      envVars:['SLACK_BOT_TOKEN'] },
+  { name:'slack',           category:'💬 Communication',       desc:'Read channels, post messages',                  runner:'npx', args:['-y','@modelcontextprotocol/server-slack'],                      envVars:['SLACK_BOT_TOKEN'] },
   { name:'discord',         category:'💬 Communication',       desc:'Send/read Discord messages',                    runner:'npx', args:['-y','discord-mcp'],                               envVars:['DISCORD_TOKEN'] },
-  { name:'github',          category:'🛠 Developer Tools',     desc:'Issues, PRs, repository management',            runner:'npx', args:['-y','@anthropic/mcp-github'],                     envVars:['GITHUB_TOKEN'] },
+  { name:'github',          category:'🛠 Developer Tools',     desc:'Issues, PRs, repository management',            runner:'npx', args:['-y','@modelcontextprotocol/server-github'],                     envVars:['GITHUB_TOKEN'] },
   { name:'git',             category:'🛠 Developer Tools',     desc:'Local git repository operations',               runner:'uvx', args:['mcp-server-git'],                                 envVars:[] },
   { name:'filesystem',      category:'🛠 Developer Tools',     desc:'Expanded filesystem access',                    runner:'npx', args:['-y','@modelcontextprotocol/server-filesystem'],   envVars:[] },
-  { name:'memory',          category:'🧠 Knowledge & Data',    desc:'Persistent cross-session memory graph',         runner:'npx', args:['-y','@anthropic/mcp-memory'],                     envVars:[] },
+  { name:'memory',          category:'🧠 Knowledge & Data',    desc:'Persistent cross-session memory graph',         runner:'npx', args:['-y','@modelcontextprotocol/server-memory'],                     envVars:[] },
   { name:'tavily',          category:'🧠 Knowledge & Data',    desc:'AI-optimised semantic search',                  runner:'npx', args:['-y','tavily-mcp'],                                envVars:['TAVILY_API_KEY'] },
   { name:'context7',        category:'🧠 Knowledge & Data',    desc:'Live library docs fetching',                    runner:'npx', args:['-y','@upstash/context7-mcp'],                     envVars:[] },
   { name:'open-meteo',      category:'🌤 Weather & Location',  desc:'Free weather forecasts — no API key needed',   runner:'npx', args:['-y','open-meteo-mcp'],                             envVars:[] },

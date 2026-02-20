@@ -71,7 +71,7 @@ See [`config.example.toml`](config.example.toml) for all options.
 | `embedding` (optional) | Vector search API config (default model: `qwen/qwen3-embedding-8b`) |
 | `skills.directory` | Folder of bot skill files (default: `skills/`) |
 | `mcp_servers` | List of MCP servers to connect |
-| `location` | Your location string, injected into system prompt |
+| `general.location` | Your location string (under `[general]`), injected into system prompt |
 
 ### MCP Server Configuration
 
@@ -107,7 +107,7 @@ args   = ["package-name", "optional-arg"]
 |--------|---------|---------|-------|
 | [Git](https://github.com/modelcontextprotocol/servers/tree/main/src/git) | `mcp-server-git` | `uvx` | Read/search git repos |
 | [Filesystem](https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem) | `@modelcontextprotocol/server-filesystem` | `npx` | File access outside the sandbox |
-| [Brave Search](https://github.com/modelcontextprotocol/servers/tree/main/src/brave-search) | `@anthropic/mcp-brave-search` | `npx` | Web search (needs [Brave API key](https://brave.com/search/api/)) |
+| [Brave Search](https://github.com/brave/brave-search-mcp-server) | `@brave/brave-search-mcp-server` | `npx` | Web search (needs [Brave API key](https://brave.com/search/api/)) |
 | [GitHub](https://github.com/modelcontextprotocol/servers/tree/main/src/github) | `@modelcontextprotocol/server-github` | `npx` | Issues, PRs, repos |
 | [Fetch](https://github.com/modelcontextprotocol/servers/tree/main/src/fetch) | `mcp-server-fetch` | `uvx` | HTTP fetch / web scraping |
 | [SQLite](https://github.com/modelcontextprotocol/servers/tree/main/src/sqlite) | `mcp-server-sqlite` | `uvx` | Query local SQLite databases |
@@ -134,7 +134,7 @@ args    = ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/dir"]
 [[mcp_servers]]
 name    = "brave-search"
 command = "npx"
-args    = ["-y", "@anthropic/mcp-brave-search"]
+args    = ["-y", "@brave/brave-search-mcp-server"]
 [mcp_servers.env]
 BRAVE_API_KEY = "your-brave-api-key"
 ```
