@@ -76,9 +76,26 @@ jobs:
           path: target/${{ matrix.target }}/release/${{ matrix.setup_asset_name }}
           if-no-files-found: error
 
+  package-extras:
+    name: Package extras
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create extras archive
+        run: tar -czf rustfox-extras.tar.gz config.example.toml setup.sh skills/
+
+      - name: Upload extras artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustfox-extras
+          path: rustfox-extras.tar.gz
+          if-no-files-found: error
+
   release:
     name: Create Release
-    needs: build
+    needs: [build, package-extras]
     runs-on: ubuntu-latest
     permissions:
       contents: write
