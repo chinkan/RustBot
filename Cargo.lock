@@ -1616,7 +1616,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "rustbot"
+name = "rustfox"
 version = "0.1.0"
 dependencies = [
  "anyhow",
