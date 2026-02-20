@@ -205,9 +205,8 @@ async fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
 
     // Resolve project root: prefer RUSTBOT_ROOT env, fall back to cwd.
-    let project_root = PathBuf::from(
-        std::env::var("RUSTBOT_ROOT").unwrap_or_else(|_| ".".to_string()),
-    );
+    let project_root =
+        PathBuf::from(std::env::var("RUSTBOT_ROOT").unwrap_or_else(|_| ".".to_string()));
 
     if args.iter().any(|a| a == "--cli") {
         return run_cli(&project_root);
@@ -246,7 +245,9 @@ async fn main() -> Result<()> {
     });
 
     axum::serve(listener, app)
-        .with_graceful_shutdown(async { let _ = shutdown_rx.await; })
+        .with_graceful_shutdown(async {
+            let _ = shutdown_rx.await;
+        })
         .await
         .context("Server error")?;
 
