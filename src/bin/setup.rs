@@ -328,11 +328,158 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
+// ── Config parsing ─────────────────────────────────────────────────────────────
+
+fn parse_existing_config(content: &str) -> ExistingConfig {
+    let raw: RawConfig = match toml::from_str(content) {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!("Could not parse existing config.toml: {e}");
+            return ExistingConfig::default();
+        }
+    };
+
+    let tg = raw.telegram.unwrap_or_default();
+    let or = raw.openrouter.unwrap_or_default();
+    let sb = raw.sandbox.unwrap_or_default();
+    let mem = raw.memory.unwrap_or_default();
+
+    let allowed_user_ids = tg
+        .allowed_user_ids
+        .unwrap_or_default()
+        .iter()
+        .map(|v| match v {
+            toml::Value::Integer(i) => i.to_string(),
+            toml::Value::String(s) => s.clone(),
+            other => other.to_string(),
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    let mcp_servers = raw
+        .mcp_servers
+        .into_iter()
+        .filter_map(|s| {
+            Some(ExistingMcpServer {
+                name: s.name?,
+                command: s.command.unwrap_or_default(),
+                args: s.args,
+                env: s.env,
+            })
+        })
+        .collect();
+
+    ExistingConfig {
+        exists: true,
+        telegram_token: tg.bot_token.unwrap_or_default(),
+        allowed_user_ids,
+        openrouter_key: or.api_key.unwrap_or_default(),
+        model: or.model.unwrap_or_default(),
+        max_tokens: or.max_tokens.unwrap_or(0), // 0 = not set; frontend treats falsy as "use wizard default (4096)"
+        system_prompt: or.system_prompt.unwrap_or_default(),
+        location: raw.location.unwrap_or_default(),
+        sandbox_dir: sb.allowed_directory.unwrap_or_default(),
+        db_path: mem.database_path.unwrap_or_default(),
+        mcp_servers,
+    }
+}
+
 // ── Tests ──────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_parse_missing_file_returns_not_exists() {
+        let cfg = parse_existing_config("this is not valid toml !!!");
+        assert!(!cfg.exists);
+    }
+
+    #[test]
+    fn test_parse_full_config() {
+        let toml = r#"
+location = "Tokyo, Japan"
+
+[telegram]
+bot_token = "mytoken123"
+allowed_user_ids = [111, 222]
+
+[openrouter]
+api_key = "sk-or-test"
+model = "gpt-4o"
+max_tokens = 2048
+system_prompt = "Be helpful."
+
+[sandbox]
+allowed_directory = "/tmp/test"
+
+[memory]
+database_path = "test.db"
+"#;
+        let cfg = parse_existing_config(toml);
+        assert!(cfg.exists);
+        assert_eq!(cfg.telegram_token, "mytoken123");
+        assert_eq!(cfg.allowed_user_ids, "111, 222");
+        assert_eq!(cfg.openrouter_key, "sk-or-test");
+        assert_eq!(cfg.model, "gpt-4o");
+        assert_eq!(cfg.max_tokens, 2048);
+        assert_eq!(cfg.system_prompt, "Be helpful.");
+        assert_eq!(cfg.location, "Tokyo, Japan");
+        assert_eq!(cfg.sandbox_dir, "/tmp/test");
+        assert_eq!(cfg.db_path, "test.db");
+        assert!(cfg.mcp_servers.is_empty());
+    }
+
+    #[test]
+    fn test_parse_config_with_mcp_servers() {
+        let toml = r#"
+[telegram]
+bot_token = "t"
+allowed_user_ids = [1]
+
+[openrouter]
+api_key = "k"
+
+[sandbox]
+allowed_directory = "/tmp"
+
+[[mcp_servers]]
+name = "git"
+command = "uvx"
+args = ["mcp-server-git"]
+
+[[mcp_servers]]
+name = "brave-search"
+command = "npx"
+args = ["-y", "@anthropic/mcp-brave-search"]
+[mcp_servers.env]
+BRAVE_API_KEY = "brave123"
+"#;
+        let cfg = parse_existing_config(toml);
+        assert!(cfg.exists);
+        assert_eq!(cfg.mcp_servers.len(), 2);
+        assert_eq!(cfg.mcp_servers[0].name, "git");
+        assert_eq!(cfg.mcp_servers[0].command, "uvx");
+        assert_eq!(cfg.mcp_servers[0].args, vec!["mcp-server-git"]);
+        assert_eq!(cfg.mcp_servers[1].name, "brave-search");
+        assert_eq!(cfg.mcp_servers[1].env.get("BRAVE_API_KEY").unwrap(), "brave123");
+    }
+
+    #[test]
+    fn test_parse_partial_config_no_panic() {
+        // Only telegram section — all other fields should be defaults
+        let toml = r#"
+[telegram]
+bot_token = "partial"
+allowed_user_ids = [42]
+"#;
+        let cfg = parse_existing_config(toml);
+        assert!(cfg.exists);
+        assert_eq!(cfg.telegram_token, "partial");
+        assert_eq!(cfg.model, "");        // no default injected — that's the wizard's job
+        assert_eq!(cfg.sandbox_dir, "");
+    }
 
     fn cfg(
         tg_token: &str,
