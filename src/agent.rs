@@ -150,6 +150,7 @@ impl Agent {
         all_tools.extend(self.mcp.tool_definitions());
         all_tools.extend(self.memory_tool_definitions());
         all_tools.extend(self.scheduling_tool_definitions());
+        all_tools.extend(self.skill_tool_definitions());
 
         // Agentic loop — keep calling LLM until we get a non-tool response
         let max_iterations = self.config.max_iterations();
@@ -339,6 +340,7 @@ impl Agent {
         all_tools.extend(self.mcp.tool_definitions());
         all_tools.extend(self.memory_tool_definitions());
         all_tools.extend(self.scheduling_tool_definitions());
+        all_tools.extend(self.skill_tool_definitions());
         all_tools
     }
 
@@ -460,6 +462,56 @@ impl Agent {
     }
 
     /// Execute a tool call by routing to the right handler
+
+    /// Skill management tool definitions exposed to the LLM
+    fn skill_tool_definitions(&self) -> Vec<ToolDefinition> {
+        use serde_json::json;
+
+        vec![
+            ToolDefinition {
+                tool_type: "function".to_string(),
+                function: FunctionDefinition {
+                    name: "write_skill_file".to_string(),
+                    description: concat!(
+                        "Write a file into a skill directory under the configured skills folder. ",
+                        "Use this to create SKILL.md and any supporting files (reference docs, templates, scripts). ",
+                        "Call reload_skills after ALL files for the skill are written."
+                    ).to_string(),
+                    parameters: json!({
+                        "type": "object",
+                        "properties": {
+                            "skill_name": {
+                                "type": "string",
+                                "description": "Skill directory name: lowercase letters, numbers, hyphens only, max 64 chars (e.g. 'creating-reports')"
+                            },
+                            "relative_path": {
+                                "type": "string",
+                                "description": "Path within the skill directory, e.g. 'SKILL.md', 'reference.md', 'scripts/helper.py'"
+                            },
+                            "content": {
+                                "type": "string",
+                                "description": "Full file content to write"
+                            }
+                        },
+                        "required": ["skill_name", "relative_path", "content"]
+                    }),
+                },
+            },
+            ToolDefinition {
+                tool_type: "function".to_string(),
+                function: FunctionDefinition {
+                    name: "reload_skills".to_string(),
+                    description: concat!(
+                        "Reload all skills from the skills directory into memory. ",
+                        "Call this after writing skill files to make the new skill immediately active ",
+                        "without restarting the bot."
+                    ).to_string(),
+                    parameters: json!({ "type": "object", "properties": {} }),
+                },
+            },
+        ]
+    }
+
     async fn execute_tool(
         &self,
         name: &str,
