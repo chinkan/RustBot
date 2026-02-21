@@ -7,13 +7,19 @@ bot_token = "YOUR_TELEGRAM_BOT_TOKEN"
 # Find your user ID by messaging @userinfobot on Telegram
 allowed_user_ids = [123456789]
 
-[openrouter]
-# Get your API key from https://openrouter.ai/keys
-api_key = "YOUR_OPENROUTER_API_KEY"
-# Model to use (see https://openrouter.ai/models)
+[llm]
+# LLM provider: "openrouter" | "ollama" | "openai"
+provider = "openrouter"
+# Model name (see provider docs for available models)
 model = "moonshotai/kimi-k2.5"
-# API base URL (usually no need to change)
-base_url = "https://openrouter.ai/api/v1"
+# API key — required for OpenRouter and OpenAI; leave blank for Ollama
+api_key = "YOUR_OPENROUTER_API_KEY"
+# Base URL — defaults to the canonical endpoint for the chosen provider:
+#   openrouter -> https://openrouter.ai/api/v1
+#   ollama     -> http://localhost:11434/v1
+#   openai     -> https://api.openai.com/v1
+# Uncomment and override only if you need a custom endpoint.
+# base_url = "https://openrouter.ai/api/v1"
 # Maximum tokens in response
 max_tokens = 4096
 # System prompt for the AI assistant
@@ -21,6 +27,21 @@ system_prompt = """You are a helpful AI assistant with access to tools. \
 Use the available tools to help the user with their tasks. \
 When using file or terminal tools, operate only within the allowed sandbox directory. \
 Be concise and helpful."""
+
+# --- Ollama example (uncomment and adjust to use a local Ollama server) ---
+# [llm]
+# provider = "ollama"
+# model = "llama3.2"
+# base_url = "http://localhost:11434/v1"
+# api_key = ""
+# max_tokens = 4096
+
+# --- OpenAI example (uncomment and adjust to use OpenAI directly) ---
+# [llm]
+# provider = "openai"
+# model = "gpt-4o"
+# api_key = "YOUR_OPENAI_API_KEY"
+# max_tokens = 4096
 
 [sandbox]
 # The directory where file operations and command execution are allowed

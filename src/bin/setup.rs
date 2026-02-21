@@ -198,21 +198,21 @@ async fn list_ollama_models() -> Json<OllamaModelsResponse> {
         .build()
         .expect("reqwest client build failed");
 
-    match client
-        .get("http://localhost:11434/api/tags")
-        .send()
-        .await
-    {
-        Ok(resp) if resp.status().is_success() => {
-            match resp.json::<TagsResponse>().await {
-                Ok(tags) => Json(OllamaModelsResponse {
-                    ok: true,
-                    models: tags.models.into_iter().map(|m| m.name).collect(),
-                }),
-                Err(_) => Json(OllamaModelsResponse { ok: false, models: vec![] }),
-            }
-        }
-        _ => Json(OllamaModelsResponse { ok: false, models: vec![] }),
+    match client.get("http://localhost:11434/api/tags").send().await {
+        Ok(resp) if resp.status().is_success() => match resp.json::<TagsResponse>().await {
+            Ok(tags) => Json(OllamaModelsResponse {
+                ok: true,
+                models: tags.models.into_iter().map(|m| m.name).collect(),
+            }),
+            Err(_) => Json(OllamaModelsResponse {
+                ok: false,
+                models: vec![],
+            }),
+        },
+        _ => Json(OllamaModelsResponse {
+            ok: false,
+            models: vec![],
+        }),
     }
 }
 
@@ -309,7 +309,10 @@ fn run_cli(project_root: &Path) -> Result<()> {
         }
         _ => {
             let key = read_line("OpenRouter API key: ")?;
-            let model = or_default(read_line("Model [moonshotai/kimi-k2.5]: ")?, "moonshotai/kimi-k2.5");
+            let model = or_default(
+                read_line("Model [moonshotai/kimi-k2.5]: ")?,
+                "moonshotai/kimi-k2.5",
+            );
             (key, model, "https://openrouter.ai/api/v1".to_string())
         }
     };
@@ -429,28 +432,35 @@ fn parse_existing_config(content: &str) -> ExistingConfig {
         .join(", ");
 
     // Prefer [llm]; fall back to [openrouter] for legacy configs.
-    let (provider, llm_key, model, base_url, max_tokens, system_prompt) =
-        if let Some(llm) = raw.llm {
-            (
-                llm.provider.unwrap_or_else(|| "openrouter".to_string()),
-                llm.api_key.unwrap_or_default(),
-                llm.model.unwrap_or_default(),
-                llm.base_url.unwrap_or_default(),
-                llm.max_tokens.unwrap_or(0),
-                llm.system_prompt.unwrap_or_default(),
-            )
-        } else if let Some(or) = raw.openrouter {
-            (
-                "openrouter".to_string(),
-                or.api_key.unwrap_or_default(),
-                or.model.unwrap_or_default(),
-                or.base_url.unwrap_or_default(),
-                or.max_tokens.unwrap_or(0),
-                or.system_prompt.unwrap_or_default(),
-            )
-        } else {
-            ("openrouter".to_string(), String::new(), String::new(), String::new(), 0, String::new())
-        };
+    let (provider, llm_key, model, base_url, max_tokens, system_prompt) = if let Some(llm) = raw.llm
+    {
+        (
+            llm.provider.unwrap_or_else(|| "openrouter".to_string()),
+            llm.api_key.unwrap_or_default(),
+            llm.model.unwrap_or_default(),
+            llm.base_url.unwrap_or_default(),
+            llm.max_tokens.unwrap_or(0),
+            llm.system_prompt.unwrap_or_default(),
+        )
+    } else if let Some(or) = raw.openrouter {
+        (
+            "openrouter".to_string(),
+            or.api_key.unwrap_or_default(),
+            or.model.unwrap_or_default(),
+            or.base_url.unwrap_or_default(),
+            or.max_tokens.unwrap_or(0),
+            or.system_prompt.unwrap_or_default(),
+        )
+    } else {
+        (
+            "openrouter".to_string(),
+            String::new(),
+            String::new(),
+            String::new(),
+            0,
+            String::new(),
+        )
+    };
 
     let mcp_servers = raw
         .mcp_servers
