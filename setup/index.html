@@ -182,6 +182,20 @@
   }
   .success-msg { color: #68d391; font-size: 0.9rem; margin-top: 1rem; display: none; }
   .success-msg.visible { display: block; }
+  .provider-tabs { display: flex; gap: 0; margin-bottom: 1.5rem; border-radius: 8px; overflow: hidden; border: 1px solid #2d3748; }
+  .provider-tab { flex: 1; padding: 0.55rem 0; text-align: center; font-size: 0.85rem; font-weight: 600; cursor: pointer; background: #0f1117; color: #718096; border: none; transition: background 0.15s, color 0.15s; }
+  .provider-tab.active { background: #f6851b; color: #fff; }
+  .provider-tab:hover:not(.active) { background: #1a1f2e; color: #cbd5e0; }
+  .provider-panel { display: none; }
+  .provider-panel.active { display: block; }
+  .ollama-model-row { display: flex; gap: 0.5rem; align-items: flex-start; }
+  .ollama-fetch-btn { padding: 0.6rem 1rem; background: #2d3748; color: #e2e8f0; border: none; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .ollama-fetch-btn:hover { background: #4a5568; }
+  .ollama-status { font-size: 0.78rem; margin-top: 0.3rem; }
+  .ollama-status.ok { color: #68d391; }
+  .ollama-status.err { color: #fc8181; }
+  .openai-custom-wrap { margin-top: 0.5rem; display: none; }
+  .openai-custom-wrap.visible { display: block; }
 </style>
 </head>
 <body>
@@ -223,7 +237,10 @@ const MCP_CATALOG = [
 const state = {
   telegram_token: '',
   allowed_user_ids: '',
-  openrouter_key: '',
+  provider: 'openrouter',
+  llm_key: '',
+  base_url: '',
+  _ollama_models: [],
   model: 'moonshotai/kimi-k2.5',
   max_tokens: '4096',
   system_prompt: 'You are a helpful AI assistant with access to tools. Use the available tools to help the user with their tasks. When using file or terminal tools, operate only within the allowed sandbox directory. Be concise and helpful.',
@@ -234,6 +251,15 @@ const state = {
   custom_mcp_servers: [],  // populated from existing config's non-catalog MCP servers
   _loaded: false,          // true when an existing config was successfully loaded
 };
+
+// ── Provider constants ─────────────────────────────────────────────────────────
+const PROVIDER_DEFAULTS = {
+  openrouter: { base_url: 'https://openrouter.ai/api/v1', model: 'moonshotai/kimi-k2.5' },
+  ollama:     { base_url: 'http://localhost:11434',        model: '' },
+  openai:     { base_url: 'https://api.openai.com/v1',     model: 'gpt-4o' },
+};
+
+const OPENAI_MODELS = ['gpt-4o', 'gpt-4o-mini', 'o3-mini', 'o4-mini', 'gpt-4-turbo'];
 
 // ── Step navigation ────────────────────────────────────────────────────────────
 const TOTAL_STEPS = 7;
@@ -281,8 +307,19 @@ function validateStep(n) {
     ok = requireField('f-allowed-ids') & ok;
   }
   if (n === 3) {
-    ok = requireField('f-openrouter-key') & ok;
-    ok = requireField('f-model') & ok;
+    const p = state.provider;
+    if (p === 'openrouter') {
+      ok = requireField('f-or-key') & ok;
+      ok = requireField('f-or-model') & ok;
+    } else if (p === 'ollama') {
+      ok = requireField('f-ollama-model') & ok;
+    } else if (p === 'openai') {
+      ok = requireField('f-oa-key') & ok;
+      const sel = document.getElementById('f-oa-model-select');
+      if (sel && sel.value === 'custom') {
+        ok = requireField('f-oa-model-custom') & ok;
+      }
+    }
   }
   return !!ok;
 }
@@ -307,11 +344,29 @@ function collectStep(n) {
     state.allowed_user_ids = document.getElementById('f-allowed-ids').value.trim();
   }
   if (n === 3) {
-    state.openrouter_key = document.getElementById('f-openrouter-key').value.trim();
-    state.model = document.getElementById('f-model').value.trim();
-    state.max_tokens = document.getElementById('f-max-tokens').value.trim() || '4096';
-    state.system_prompt = document.getElementById('f-system-prompt').value;
-    state.location = document.getElementById('f-location').value.trim();
+    const p = state.provider;
+    if (p === 'openrouter') {
+      state.llm_key = document.getElementById('f-or-key').value.trim();
+      state.model   = document.getElementById('f-or-model').value.trim();
+      state.base_url = PROVIDER_DEFAULTS.openrouter.base_url;
+    } else if (p === 'ollama') {
+      state.llm_key  = '';
+      state.model    = document.getElementById('f-ollama-model').value.trim();
+      let rawUrl = (document.getElementById('f-ollama-url').value.trim() || PROVIDER_DEFAULTS.ollama.base_url);
+      // normalise: strip trailing /v1 then re-add, to avoid /v1/v1
+      rawUrl = rawUrl.replace(/\/v1\/?$/, '');
+      state.base_url = rawUrl + '/v1';
+    } else if (p === 'openai') {
+      state.llm_key  = document.getElementById('f-oa-key').value.trim();
+      const sel = document.getElementById('f-oa-model-select');
+      state.model = sel.value === 'custom'
+        ? document.getElementById('f-oa-model-custom').value.trim()
+        : sel.value;
+      state.base_url = PROVIDER_DEFAULTS.openai.base_url;
+    }
+    state.max_tokens    = document.getElementById('f-max-tokens-' + p).value.trim() || '4096';
+    state.system_prompt = document.getElementById('f-system-prompt-' + p).value;
+    state.location      = document.getElementById('f-location-' + p).value.trim();
   }
   if (n === 4) {
     state.sandbox_dir = document.getElementById('f-sandbox-dir').value.trim() || '/tmp/rustfox-sandbox';
@@ -346,13 +401,13 @@ function generateToml() {
     'bot_token = "' + esc(state.telegram_token) + '"\n' +
     'allowed_user_ids = [' + ids + ']\n' +
     '\n' +
-    '[openrouter]\n' +
-    'api_key = "' + esc(state.openrouter_key) + '"\n' +
+    '[llm]\n' +
+    'provider = "' + esc(state.provider) + '"\n' +
     'model = "' + esc(state.model) + '"\n' +
-    'base_url = "https://openrouter.ai/api/v1"\n' +
+    'base_url = "' + esc(state.base_url || (PROVIDER_DEFAULTS[state.provider] && PROVIDER_DEFAULTS[state.provider].base_url) || '') + '"\n' +
+    'api_key = "' + esc(state.llm_key) + '"\n' +
     'max_tokens = ' + (parseInt(state.max_tokens, 10) || 4096) + '\n' +
-    'system_prompt = """' + sysprompt + '"""\n' +
-    '\n' +
+    'system_prompt = """' + sysprompt + '"""\n\n' +
     '[sandbox]\n' +
     'allowed_directory = "' + esc(state.sandbox_dir) + '"\n' +
     '\n' +
@@ -464,7 +519,9 @@ async function loadExistingConfig() {
     // Populate scalar state fields (non-empty values win over defaults)
     if (cfg.telegram_token)   state.telegram_token   = cfg.telegram_token;
     if (cfg.allowed_user_ids) state.allowed_user_ids = cfg.allowed_user_ids;
-    if (cfg.openrouter_key)   state.openrouter_key   = cfg.openrouter_key;
+    if (cfg.provider)         state.provider         = cfg.provider;
+    if (cfg.llm_key)          state.llm_key          = cfg.llm_key;
+    if (cfg.base_url)         state.base_url         = cfg.base_url;
     if (cfg.model)            state.model            = cfg.model;
     if (cfg.max_tokens)       state.max_tokens       = String(cfg.max_tokens);
     if (cfg.system_prompt)    state.system_prompt    = cfg.system_prompt;
@@ -566,6 +623,47 @@ function addCustomServer() {
   document.getElementById('custom-env-rows').innerHTML = '';
 }
 
+// ── Provider tab helpers ────────────────────────────────────────────────────────
+function switchProvider(p) {
+  state.provider = p;
+  document.querySelectorAll('.provider-tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.p === p));
+  document.querySelectorAll('.provider-panel').forEach(panel =>
+    panel.classList.toggle('active', panel.dataset.p === p));
+}
+
+function toggleOpenAiCustom() {
+  const sel = document.getElementById('f-oa-model-select');
+  const wrap = document.getElementById('oa-custom-wrap');
+  if (!sel || !wrap) return;
+  wrap.classList.toggle('visible', sel.value === 'custom');
+}
+
+async function fetchOllamaModels() {
+  const btn = document.getElementById('ollama-fetch-btn');
+  const status = document.getElementById('ollama-status');
+  const inp = document.getElementById('f-ollama-model');
+  if (btn) btn.disabled = true;
+  if (status) { status.textContent = 'Fetching\u2026'; status.className = 'ollama-status'; }
+  try {
+    const res = await fetch('/api/ollama-models');
+    const data = await res.json();
+    if (data.ok && data.models.length > 0) {
+      state._ollama_models = data.models;
+      if (inp && !inp.value) inp.value = data.models[0];
+      if (status) {
+        status.textContent = data.models.length + ' model(s) found: ' + data.models.slice(0, 3).join(', ') + (data.models.length > 3 ? '\u2026' : '');
+        status.className = 'ollama-status ok';
+      }
+    } else {
+      if (status) { status.textContent = 'Ollama not reachable \u2014 type model name manually'; status.className = 'ollama-status err'; }
+    }
+  } catch (_) {
+    if (status) { status.textContent = 'Fetch failed \u2014 type model name manually'; status.className = 'ollama-status err'; }
+  }
+  if (btn) btn.disabled = false;
+}
+
 // ── Build HTML ─────────────────────────────────────────────────────────────────
 function buildSteps() {
   const c = document.getElementById('steps-container');
@@ -598,30 +696,114 @@ function buildSteps() {
   </div>
 </div>`;
 
-  // Step 3: OpenRouter
+  // Step 3: LLM Provider
+  const orModel = escHtml(state.provider === 'openrouter' ? state.model : (PROVIDER_DEFAULTS.openrouter.model));
+  const ollamaModel = escHtml(state.provider === 'ollama' ? state.model : '');
+  const ollamaUrl = escHtml(state.provider === 'ollama' && state.base_url ? state.base_url.replace(/\/v1\/?$/, '') : 'http://localhost:11434');
+  const oaKeyVal = escHtml(state.provider === 'openai' ? state.llm_key : '');
+  const orKeyVal = escHtml(state.provider === 'openrouter' ? state.llm_key : '');
+  const maxTokensVal = escHtml(state.max_tokens || '4096');
+  const syspromptVal = escHtml(state.system_prompt);
+  const locationVal = escHtml(state.location);
+  const oaModelOptions = OPENAI_MODELS.map(m => {
+    const selected = (state.provider === 'openai' && state.model === m) ? ' selected' : (m === 'gpt-4o' && state.provider !== 'openai' ? ' selected' : '');
+    return `<option value="${escHtml(m)}"${selected}>${escHtml(m)}</option>`;
+  }).join('') + `<option value="custom"${state.provider === 'openai' && !OPENAI_MODELS.includes(state.model) && state.model ? ' selected' : ''}>Custom\u2026</option>`;
+  const oaCustomModel = escHtml(state.provider === 'openai' && !OPENAI_MODELS.includes(state.model) ? state.model : '');
+  const oaCustomVisible = (state.provider === 'openai' && !OPENAI_MODELS.includes(state.model) && state.model) ? ' visible' : '';
+
   c.innerHTML += `<div class="step" id="step-3">
-  <h2>OpenRouter</h2>
-  <div class="field">
-    <label>API Key <span class="hint">— openrouter.ai/keys</span></label>
-    <input type="password" id="f-openrouter-key" placeholder="sk-or-..." value="${escHtml(state.openrouter_key)}">
-    <div class="error-msg" id="f-openrouter-key-err">API key is required.</div>
+  <h2>LLM Provider</h2>
+  <div class="provider-tabs">
+    <button class="provider-tab${state.provider === 'openrouter' ? ' active' : ''}" data-p="openrouter" onclick="switchProvider('openrouter')">OpenRouter</button>
+    <button class="provider-tab${state.provider === 'ollama' ? ' active' : ''}" data-p="ollama" onclick="switchProvider('ollama')">Ollama (local)</button>
+    <button class="provider-tab${state.provider === 'openai' ? ' active' : ''}" data-p="openai" onclick="switchProvider('openai')">OpenAI</button>
   </div>
-  <div class="field">
-    <label>Model <span class="hint">— openrouter.ai/models</span></label>
-    <input type="text" id="f-model" value="${escHtml(state.model || 'moonshotai/kimi-k2.5')}">
-    <div class="error-msg" id="f-model-err">Model is required.</div>
+
+  <!-- OpenRouter panel -->
+  <div class="provider-panel${state.provider === 'openrouter' ? ' active' : ''}" data-p="openrouter">
+    <div class="field">
+      <label>API Key <span class="hint">— openrouter.ai/keys</span></label>
+      <input type="password" id="f-or-key" placeholder="sk-or-..." value="${orKeyVal}">
+      <div class="error-msg" id="f-or-key-err">API key is required.</div>
+    </div>
+    <div class="field">
+      <label>Model <span class="hint">— openrouter.ai/models</span></label>
+      <input type="text" id="f-or-model" value="${orModel}">
+      <div class="error-msg" id="f-or-model-err">Model is required.</div>
+    </div>
+    <div class="field">
+      <label>Max Tokens</label>
+      <input type="text" id="f-max-tokens-openrouter" value="${maxTokensVal}">
+    </div>
+    <div class="field">
+      <label>System Prompt</label>
+      <textarea id="f-system-prompt-openrouter">${syspromptVal}</textarea>
+    </div>
+    <div class="field">
+      <label>Location <span class="hint">— optional, gives the AI your timezone/region</span></label>
+      <input type="text" id="f-location-openrouter" placeholder="Hong Kong" value="${locationVal}">
+    </div>
   </div>
-  <div class="field">
-    <label>Max Tokens</label>
-    <input type="text" id="f-max-tokens" value="${escHtml(state.max_tokens || '4096')}">
+
+  <!-- Ollama panel -->
+  <div class="provider-panel${state.provider === 'ollama' ? ' active' : ''}" data-p="ollama">
+    <div class="field">
+      <label>Base URL</label>
+      <input type="text" id="f-ollama-url" value="${ollamaUrl}">
+    </div>
+    <div class="field">
+      <label>Model</label>
+      <div class="ollama-model-row">
+        <input type="text" id="f-ollama-model" placeholder="llama3.2" value="${ollamaModel}" style="flex:1">
+        <button type="button" class="ollama-fetch-btn" id="ollama-fetch-btn" onclick="fetchOllamaModels()">Fetch models</button>
+      </div>
+      <div class="ollama-status" id="ollama-status"></div>
+      <div class="error-msg" id="f-ollama-model-err">Model name is required.</div>
+    </div>
+    <div class="field">
+      <label>Max Tokens</label>
+      <input type="text" id="f-max-tokens-ollama" value="${maxTokensVal}">
+    </div>
+    <div class="field">
+      <label>System Prompt</label>
+      <textarea id="f-system-prompt-ollama">${syspromptVal}</textarea>
+    </div>
+    <div class="field">
+      <label>Location <span class="hint">— optional, gives the AI your timezone/region</span></label>
+      <input type="text" id="f-location-ollama" placeholder="Hong Kong" value="${locationVal}">
+    </div>
   </div>
-  <div class="field">
-    <label>System Prompt</label>
-    <textarea id="f-system-prompt">${escHtml(state.system_prompt)}</textarea>
-  </div>
-  <div class="field">
-    <label>Location <span class="hint">— optional, gives the AI your timezone/region</span></label>
-    <input type="text" id="f-location" placeholder="Hong Kong" value="${escHtml(state.location)}">
+
+  <!-- OpenAI panel -->
+  <div class="provider-panel${state.provider === 'openai' ? ' active' : ''}" data-p="openai">
+    <div class="field">
+      <label>API Key <span class="hint">— platform.openai.com/api-keys</span></label>
+      <input type="password" id="f-oa-key" placeholder="sk-..." value="${oaKeyVal}">
+      <div class="error-msg" id="f-oa-key-err">API key is required.</div>
+    </div>
+    <div class="field">
+      <label>Model</label>
+      <select id="f-oa-model-select" onchange="toggleOpenAiCustom()" style="width:100%;background:#0f1117;border:1px solid #2d3748;border-radius:8px;color:#e2e8f0;padding:0.6rem 0.875rem;font-size:0.9rem;">
+        ${oaModelOptions}
+      </select>
+      <div class="openai-custom-wrap${oaCustomVisible}" id="oa-custom-wrap">
+        <input type="text" id="f-oa-model-custom" placeholder="enter model name" value="${oaCustomModel}">
+        <div class="error-msg" id="f-oa-model-custom-err">Custom model name is required.</div>
+      </div>
+    </div>
+    <div class="field">
+      <label>Max Tokens</label>
+      <input type="text" id="f-max-tokens-openai" value="${maxTokensVal}">
+    </div>
+    <div class="field">
+      <label>System Prompt</label>
+      <textarea id="f-system-prompt-openai">${syspromptVal}</textarea>
+    </div>
+    <div class="field">
+      <label>Location <span class="hint">— optional, gives the AI your timezone/region</span></label>
+      <input type="text" id="f-location-openai" placeholder="Hong Kong" value="${locationVal}">
+    </div>
   </div>
 </div>`;
 
