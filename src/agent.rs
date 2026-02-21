@@ -461,8 +461,6 @@ impl Agent {
         ]
     }
 
-    /// Execute a tool call by routing to the right handler
-
     /// Skill management tool definitions exposed to the LLM
     fn skill_tool_definitions(&self) -> Vec<ToolDefinition> {
         use serde_json::json;
@@ -512,6 +510,7 @@ impl Agent {
         ]
     }
 
+    /// Execute a tool call by routing to the right handler
     async fn execute_tool(
         &self,
         name: &str,
