@@ -117,6 +117,7 @@ args   = ["package-name", "optional-arg"]
 | [Fetch](https://github.com/modelcontextprotocol/servers/tree/main/src/fetch) | `mcp-server-fetch` | `uvx` | HTTP fetch / web scraping |
 | [SQLite](https://github.com/modelcontextprotocol/servers/tree/main/src/sqlite) | `mcp-server-sqlite` | `uvx` | Query local SQLite databases |
 | [Puppeteer](https://github.com/modelcontextprotocol/servers/tree/main/src/puppeteer) | `@modelcontextprotocol/server-puppeteer` | `npx` | Browser automation |
+| [Threads](https://github.com/baguskto/threads-mcp) | `threads-mcp-server` | `npx` | Publish/manage Meta Threads posts (needs access token) |
 
 > Find more servers at the [MCP server registry](https://github.com/modelcontextprotocol/servers) and [mcp.so](https://mcp.so/).
 
@@ -142,6 +143,17 @@ command = "npx"
 args    = ["-y", "@brave/brave-search-mcp-server"]
 [mcp_servers.env]
 BRAVE_API_KEY = "your-brave-api-key"
+
+# Meta Threads — publish posts and read replies (requires long-lived access token)
+# Token setup: Facebook Developers → Create App → add Threads API product →
+#   request threads_basic / threads_content_publish / threads_manage_replies /
+#   threads_read_replies → generate token under Threads API → Access Tokens
+[[mcp_servers]]
+name    = "threads"
+command = "npx"
+args    = ["-y", "threads-mcp-server"]
+[mcp_servers.env]
+THREADS_ACCESS_TOKEN = "your-long-lived-access-token"
 ```
 
 #### Tool Naming
