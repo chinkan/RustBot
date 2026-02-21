@@ -121,14 +121,6 @@ pub struct AgentConfig {
     pub max_iterations: u32,
 }
 
-fn default_model() -> String {
-    "moonshotai/kimi-k2.5".to_string()
-}
-
-fn default_base_url_openrouter() -> String {
-    "https://openrouter.ai/api/v1".to_string()
-}
-
 fn default_max_tokens() -> u32 {
     4096
 }
@@ -200,7 +192,7 @@ impl Config {
         // Try parsing as-is; if [llm] is missing but [openrouter] exists, migrate.
         let config: Config = match toml::from_str(&content) {
             Ok(c) => c,
-            Err(_) => {
+            Err(primary_err) => {
                 // Attempt legacy migration: parse a loose struct that accepts [openrouter]
                 #[derive(serde::Deserialize)]
                 struct LegacyConfig {
@@ -223,9 +215,9 @@ impl Config {
                 struct LegacyOpenRouter {
                     #[serde(default)]
                     api_key: String,
-                    #[serde(default = "default_model")]
+                    #[serde(default)]
                     model: String,
-                    #[serde(default = "default_base_url_openrouter")]
+                    #[serde(default)]
                     base_url: String,
                     #[serde(default = "default_max_tokens")]
                     max_tokens: u32,
@@ -233,14 +225,27 @@ impl Config {
                     system_prompt: String,
                 }
                 let legacy: LegacyConfig = toml::from_str(&content)
-                    .context("Failed to parse config file (legacy and new format both failed)")?;
+                    .with_context(|| format!(
+                        "Failed to parse config file (new format error: {}; legacy format also failed)",
+                        primary_err
+                    ))?;
                 let or = legacy.openrouter.unwrap_or_default();
+                let legacy_model = if or.model.is_empty() {
+                    "moonshotai/kimi-k2.5".to_string()
+                } else {
+                    or.model
+                };
+                let legacy_base_url = if or.base_url.is_empty() {
+                    "https://openrouter.ai/api/v1".to_string()
+                } else {
+                    or.base_url
+                };
                 Config {
                     telegram: legacy.telegram,
                     llm: LlmConfig {
                         provider: LlmProvider::Openrouter,
-                        model: or.model,
-                        base_url: or.base_url,
+                        model: legacy_model,
+                        base_url: legacy_base_url,
                         api_key: or.api_key,
                         max_tokens: or.max_tokens,
                         system_prompt: or.system_prompt,
