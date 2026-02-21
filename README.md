@@ -204,6 +204,8 @@ src/
 - [x] Vector embedding search (`qwen/qwen3-embedding-8b`)
 - [x] Scheduling tools (`schedule_task`, `list_scheduled_tasks`, `cancel_scheduled_task`)
 - [x] Bot skills (folder-based, auto-loaded at startup)
+- [x] Agent skill writer (`write_skill_file` tool — creates/updates skill files from within the agent)
+- [x] Agent skill reload (`reload_skills` tool — hot-reloads skill registry without restart)
 
 ### Planned
 
