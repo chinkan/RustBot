@@ -954,6 +954,8 @@ function buildSteps() {
       let guideHtml = '';
       if (tool.setupGuide === '__OAUTH_GUIDE_BUTTON__') {
         guideHtml = `<button class="btn-guide" onclick="event.stopPropagation();openOAuthModal()" type="button">&#9432; OAuth Setup Guide</button>`;
+      } else if (tool.setupGuide === '__THREADS_GUIDE_BUTTON__') {
+        guideHtml = `<button class="btn-guide" onclick="event.stopPropagation();openThreadsModal()" type="button">&#9432; Threads Setup Guide</button>`;
       } else if (tool.setupGuide) {
         guideHtml = `<div class="mcp-setup-guide" onclick="event.stopPropagation()">${tool.setupGuide}</div>`;
       }
@@ -1060,9 +1062,21 @@ function closeOAuthModal(event) {
   document.body.style.overflow = '';
 }
 
+function openThreadsModal() {
+  document.getElementById('threads-modal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeThreadsModal(event) {
+  if (event && event.target !== document.getElementById('threads-modal')) return;
+  document.getElementById('threads-modal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
     document.getElementById('oauth-modal').classList.remove('open');
+    document.getElementById('threads-modal').classList.remove('open');
     document.body.style.overflow = '';
   }
 });
