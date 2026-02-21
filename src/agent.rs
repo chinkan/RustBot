@@ -766,6 +766,36 @@ pub fn split_response_chunks(text: &str, max_len: usize) -> Vec<String> {
     chunks
 }
 
+/// Validate skill directory name: lowercase letters, numbers, hyphens, 1–64 chars.
+fn validate_skill_name(name: &str) -> Result<(), String> {
+    if name.is_empty() {
+        return Err("Skill name must not be empty".to_string());
+    }
+    if name.len() > 64 {
+        return Err(format!("Skill name too long ({} chars, max 64)", name.len()));
+    }
+    if !name
+        .chars()
+        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+    {
+        return Err(
+            "Skill name must contain only lowercase letters, numbers, and hyphens".to_string(),
+        );
+    }
+    Ok(())
+}
+
+/// Validate a relative path within a skill directory: no '..' components, non-empty.
+fn validate_skill_path(path: &str) -> Result<(), String> {
+    if path.is_empty() {
+        return Err("Relative path must not be empty".to_string());
+    }
+    if path.split('/').any(|c| c == "..") {
+        return Err("Path traversal ('..') is not allowed".to_string());
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -799,5 +829,51 @@ mod tests {
     fn test_validate_cron_expr_wrong_field_count() {
         assert!(validate_cron_expr("0 9 * * *").is_err()); // 5 fields
         assert!(validate_cron_expr("0 0 9 1 * * MON").is_err()); // 7 fields
+    }
+
+    #[test]
+    fn test_validate_skill_name_valid() {
+        assert!(validate_skill_name("creating-skills").is_ok());
+        assert!(validate_skill_name("my-skill-123").is_ok());
+        assert!(validate_skill_name("a").is_ok());
+    }
+
+    #[test]
+    fn test_validate_skill_name_empty() {
+        assert!(validate_skill_name("").is_err());
+    }
+
+    #[test]
+    fn test_validate_skill_name_too_long() {
+        let long = "a".repeat(65);
+        assert!(validate_skill_name(&long).is_err());
+    }
+
+    #[test]
+    fn test_validate_skill_name_invalid_chars() {
+        assert!(validate_skill_name("My-Skill").is_err());  // uppercase
+        assert!(validate_skill_name("my skill").is_err()); // space
+        assert!(validate_skill_name("my_skill").is_err()); // underscore
+        assert!(validate_skill_name("my/skill").is_err()); // slash
+    }
+
+    #[test]
+    fn test_validate_skill_path_valid() {
+        assert!(validate_skill_path("SKILL.md").is_ok());
+        assert!(validate_skill_path("reference.md").is_ok());
+        assert!(validate_skill_path("scripts/helper.py").is_ok());
+        assert!(validate_skill_path("scripts/sub/tool.sh").is_ok());
+    }
+
+    #[test]
+    fn test_validate_skill_path_traversal() {
+        assert!(validate_skill_path("../other-skill/SKILL.md").is_err());
+        assert!(validate_skill_path("scripts/../../../etc/passwd").is_err());
+        assert!(validate_skill_path("..").is_err());
+    }
+
+    #[test]
+    fn test_validate_skill_path_empty() {
+        assert!(validate_skill_path("").is_err());
     }
 }
