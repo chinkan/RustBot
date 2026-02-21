@@ -745,6 +745,58 @@ impl Agent {
                     Err(e) => format!("Failed to update task status: {}", e),
                 }
             }
+            "write_skill_file" => {
+                let skill_name = match arguments["skill_name"].as_str() {
+                    Some(n) => n.to_string(),
+                    None => return "Missing skill_name".to_string(),
+                };
+                let relative_path = match arguments["relative_path"].as_str() {
+                    Some(p) => p.to_string(),
+                    None => return "Missing relative_path".to_string(),
+                };
+                let content = arguments["content"].as_str().unwrap_or("").to_string();
+
+                if let Err(e) = validate_skill_name(&skill_name) {
+                    return format!("Invalid skill_name: {}", e);
+                }
+                if let Err(e) = validate_skill_path(&relative_path) {
+                    return format!("Invalid relative_path: {}", e);
+                }
+
+                let target = self
+                    .config
+                    .skills
+                    .directory
+                    .join(&skill_name)
+                    .join(&relative_path);
+
+                if let Some(parent) = target.parent() {
+                    if let Err(e) = tokio::fs::create_dir_all(parent).await {
+                        return format!("Failed to create directories: {}", e);
+                    }
+                }
+
+                match tokio::fs::write(&target, &content).await {
+                    Ok(()) => {
+                        info!("Skill file written: {}", target.display());
+                        format!("Written: {}", target.display())
+                    }
+                    Err(e) => format!("Failed to write skill file: {}", e),
+                }
+            }
+            "reload_skills" => {
+                use crate::skills::loader::load_skills_from_dir;
+                match load_skills_from_dir(&self.config.skills.directory).await {
+                    Ok(new_registry) => {
+                        let count = new_registry.len();
+                        let mut skills = self.skills.write().await;
+                        *skills = new_registry;
+                        info!("Skills reloaded: {} skill(s) active", count);
+                        format!("Skills reloaded. {} skill(s) now active.", count)
+                    }
+                    Err(e) => format!("Failed to reload skills: {}", e),
+                }
+            }
             _ if self.mcp.is_mcp_tool(name) => match self.mcp.call_tool(name, arguments).await {
                 Ok(result) => result,
                 Err(e) => format!("MCP tool error: {}", e),
@@ -831,7 +883,6 @@ pub fn split_response_chunks(text: &str, max_len: usize) -> Vec<String> {
 }
 
 /// Validate skill directory name: lowercase letters, numbers, hyphens, 1–64 chars.
-#[allow(dead_code)]
 fn validate_skill_name(name: &str) -> Result<(), String> {
     if name.is_empty() {
         return Err("Skill name must not be empty".to_string());
@@ -851,7 +902,6 @@ fn validate_skill_name(name: &str) -> Result<(), String> {
 }
 
 /// Validate a relative path within a skill directory: no '..' components, non-empty.
-#[allow(dead_code)]
 fn validate_skill_path(path: &str) -> Result<(), String> {
     if path.is_empty() {
         return Err("Relative path must not be empty".to_string());
