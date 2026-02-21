@@ -2,18 +2,13 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum LlmProvider {
+    #[default]
     Openrouter,
     Ollama,
     Openai,
-}
-
-impl Default for LlmProvider {
-    fn default() -> Self {
-        LlmProvider::Openrouter
-    }
 }
 
 #[derive(Debug, Deserialize, Clone)]
