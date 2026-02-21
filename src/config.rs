@@ -11,6 +11,16 @@ pub enum LlmProvider {
     Openai,
 }
 
+impl std::fmt::Display for LlmProvider {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LlmProvider::Openrouter => write!(f, "openrouter"),
+            LlmProvider::Ollama => write!(f, "ollama"),
+            LlmProvider::Openai => write!(f, "openai"),
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Clone)]
 pub struct LlmConfig {
     #[serde(default)]
