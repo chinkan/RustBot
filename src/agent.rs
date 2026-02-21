@@ -30,7 +30,7 @@ pub struct Agent {
     pub config: Config,
     pub mcp: McpManager,
     pub memory: MemoryStore,
-    pub skills: SkillRegistry,
+    pub skills: tokio::sync::RwLock<SkillRegistry>,
     // Fields used by scheduling / job closures
     pub task_store: ScheduledTaskStore,
     pub scheduler: Arc<Scheduler>,
@@ -60,7 +60,7 @@ impl Agent {
             config,
             mcp,
             memory,
-            skills,
+            skills: tokio::sync::RwLock::new(skills),
             task_store,
             scheduler,
             bot,
@@ -70,14 +70,16 @@ impl Agent {
     }
 
     /// Build the system prompt, incorporating loaded skills
-    fn build_system_prompt(&self) -> String {
+    async fn build_system_prompt(&self) -> String {
         let mut prompt = self.config.openrouter.system_prompt.clone();
 
-        let skill_context = self.skills.build_context();
+        let skills = self.skills.read().await;
+        let skill_context = skills.build_context();
         if !skill_context.is_empty() {
             prompt.push_str("\n\n# Available Skills\n\n");
             prompt.push_str(&skill_context);
         }
+        drop(skills); // release read lock before further work
 
         // Append current timestamp and optional location
         let now = chrono::Utc::now()
