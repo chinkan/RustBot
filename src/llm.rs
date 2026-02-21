@@ -88,11 +88,7 @@ impl LlmClient {
             Some(tools.to_vec())
         };
 
-        let tool_choice = if tools_param.is_some() {
-            Some("auto".to_string())
-        } else {
-            None
-        };
+        let tool_choice = tools_param.as_ref().map(|_| "auto".to_string());
 
         let request = ChatRequest {
             model: self.config.model.clone(),
@@ -111,7 +107,7 @@ impl LlmClient {
             .post(&url)
             .header("Content-Type", "application/json");
         if !self.config.api_key.is_empty() {
-            req = req.header("Authorization", format!("Bearer {}", self.config.api_key));
+            req = req.bearer_auth(&self.config.api_key);
         }
         let response = req
             .json(&request)
