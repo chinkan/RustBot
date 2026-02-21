@@ -219,6 +219,7 @@ src/
 - [x] Setup wizard (web UI + CLI) for guided `config.toml` creation
 - [x] Agent skill writer (`write_skill_file` tool — creates/updates skill files from within the agent)
 - [x] Agent skill reload (`reload_skills` tool — hot-reloads skill registry without restart)
+- [x] Meta Threads MCP integration (setup wizard entry, config example, token setup guide)
 
 ### Planned
 
