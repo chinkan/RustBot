@@ -196,7 +196,7 @@ async fn list_ollama_models() -> Json<OllamaModelsResponse> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(3))
         .build()
-        .unwrap_or_default();
+        .expect("reqwest client build failed");
 
     match client
         .get("http://localhost:11434/api/tags")
@@ -703,5 +703,28 @@ allowed_directory = "/tmp"
         let out = cfg("t", "1", "k", "m", "/tmp", "db.db", "");
         assert!(out.contains("[skills]"));
         assert!(out.contains(r#"directory = "skills""#));
+    }
+
+    #[test]
+    fn test_parse_legacy_openrouter_config() {
+        let toml = r#"
+[telegram]
+bot_token = "t"
+allowed_user_ids = [1]
+
+[openrouter]
+api_key = "sk-or-legacy"
+model = "old-model"
+max_tokens = 1024
+
+[sandbox]
+allowed_directory = "/tmp"
+"#;
+        let cfg = parse_existing_config(toml);
+        assert!(cfg.exists);
+        assert_eq!(cfg.provider, "openrouter");
+        assert_eq!(cfg.llm_key, "sk-or-legacy");
+        assert_eq!(cfg.model, "old-model");
+        assert_eq!(cfg.max_tokens, 1024);
     }
 }
