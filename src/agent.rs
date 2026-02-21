@@ -127,7 +127,10 @@ impl Agent {
         } else {
             // Refresh in-memory: new skills loaded by reload_skills take effect
             // on the very next message without restarting the bot.
-            messages[0].content = Some(current_system_prompt);
+            // Find the system message by role (defensive: don't assume messages[0] is system).
+            if let Some(system_msg) = messages.iter_mut().find(|m| m.role == "system") {
+                system_msg.content = Some(current_system_prompt);
+            }
         }
 
         // Add user message
