@@ -103,6 +103,25 @@ directory = "skills"
 # GOOGLE_WORKSPACE_REFRESH_TOKEN = "your-refresh-token"  # from step 4 above
 # GOOGLE_WORKSPACE_ENABLED_CAPABILITIES = '["drive","docs","gmail","calendar","sheets","slides"]'
 
+# Example: Meta Threads MCP server (publish posts, read replies, analytics)
+#
+# Token setup:
+#   1. Go to https://developers.facebook.com/apps → Create App → Business type
+#      → add the "Threads API" product from the dashboard
+#   2. Under Threads API → Permissions → request:
+#         threads_basic, threads_content_publish,
+#         threads_manage_replies, threads_read_replies
+#      Add your Threads account as a Test User under App Roles → Roles
+#   3. Under Threads API → Access Tokens → Generate Token for your test user
+#      → copy the long-lived token (valid ~60 days; regenerate before expiry)
+#
+# [[mcp_servers]]
+# name = "threads"
+# command = "npx"
+# args = ["-y", "threads-mcp-server"]
+# [mcp_servers.env]
+# THREADS_ACCESS_TOKEN = "your-long-lived-access-token"
+
 # Example: Web search MCP server with environment variables
 # [[mcp_servers]]
 # name = "brave-search"
