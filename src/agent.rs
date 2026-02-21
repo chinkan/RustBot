@@ -108,11 +108,15 @@ impl Agent {
         // Load existing messages from memory
         let mut messages = self.memory.load_messages(&conversation_id).await?;
 
-        // If no messages yet, add system prompt
+        // Always build the system prompt from the live registry.
+        // For new conversations: save to DB and push.
+        // For existing conversations: refresh messages[0] in-memory only
+        //   (DB keeps the historical system message intact).
+        let current_system_prompt = self.build_system_prompt().await;
         if messages.is_empty() {
             let system_msg = ChatMessage {
                 role: "system".to_string(),
-                content: Some(self.build_system_prompt()),
+                content: Some(current_system_prompt),
                 tool_calls: None,
                 tool_call_id: None,
             };
@@ -120,6 +124,10 @@ impl Agent {
                 .save_message(&conversation_id, &system_msg)
                 .await?;
             messages.push(system_msg);
+        } else {
+            // Refresh in-memory: new skills loaded by reload_skills take effect
+            // on the very next message without restarting the bot.
+            messages[0].content = Some(current_system_prompt);
         }
 
         // Add user message
