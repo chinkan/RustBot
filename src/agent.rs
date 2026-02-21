@@ -888,7 +888,10 @@ fn validate_skill_name(name: &str) -> Result<(), String> {
         return Err("Skill name must not be empty".to_string());
     }
     if name.len() > 64 {
-        return Err(format!("Skill name too long ({} chars, max 64)", name.len()));
+        return Err(format!(
+            "Skill name too long ({} chars, max 64)",
+            name.len()
+        ));
     }
     if !name
         .chars()
@@ -970,7 +973,7 @@ mod tests {
 
     #[test]
     fn test_validate_skill_name_invalid_chars() {
-        assert!(validate_skill_name("My-Skill").is_err());  // uppercase
+        assert!(validate_skill_name("My-Skill").is_err()); // uppercase
         assert!(validate_skill_name("my skill").is_err()); // space
         assert!(validate_skill_name("my_skill").is_err()); // underscore
         assert!(validate_skill_name("my/skill").is_err()); // slash
