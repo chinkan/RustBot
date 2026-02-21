@@ -418,6 +418,74 @@
   </div>
 </div>
 
+<!-- Threads API Setup Modal -->
+<div class="modal-overlay" id="threads-modal" onclick="closeThreadsModal(event)">
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="threads-modal-title">
+    <button class="modal-close" onclick="closeThreadsModal()" aria-label="Close">&#x2715;</button>
+    <h3 id="threads-modal-title">Meta Threads — Access Token Setup</h3>
+    <p class="modal-subtitle">Follow these 4 steps to get your long-lived access token. You only need to do this once.</p>
+    <ol class="oauth-steps">
+      <li class="oauth-step">
+        <div class="oauth-step-num">1</div>
+        <div class="oauth-step-body">
+          <div class="oauth-step-title">Create a Meta Developer App</div>
+          <div class="oauth-step-desc">
+            Go to <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener">developers.facebook.com/apps</a>
+            and click <strong>Create App</strong>.<br>
+            Choose the <strong>Business</strong> app type, give it a name, and complete the creation flow.
+          </div>
+        </div>
+      </li>
+      <li class="oauth-step">
+        <div class="oauth-step-num">2</div>
+        <div class="oauth-step-body">
+          <div class="oauth-step-title">Add the Threads API Product</div>
+          <div class="oauth-step-desc">
+            In your app dashboard, click <strong>Add Product</strong> and find <strong>Threads API</strong>.<br>
+            Click <strong>Set Up</strong> to add it to your app.
+          </div>
+        </div>
+      </li>
+      <li class="oauth-step">
+        <div class="oauth-step-num">3</div>
+        <div class="oauth-step-body">
+          <div class="oauth-step-title">Configure Permissions</div>
+          <div class="oauth-step-desc">
+            Under <strong>Threads API → Permissions</strong>, request all four permissions:
+            <ul class="scope-list">
+              <li>threads_basic</li>
+              <li>threads_content_publish</li>
+              <li>threads_manage_replies</li>
+              <li>threads_read_replies</li>
+            </ul>
+            Add your Instagram/Threads account as a <strong>Test User</strong> under
+            <strong>App Roles → Roles</strong> so you can generate a token before app review.
+          </div>
+        </div>
+      </li>
+      <li class="oauth-step">
+        <div class="oauth-step-num">4</div>
+        <div class="oauth-step-body">
+          <div class="oauth-step-title">Generate a Long-Lived Access Token</div>
+          <div class="oauth-step-desc">
+            Under <strong>Threads API → Access Tokens</strong>, click <strong>Generate Token</strong>
+            for your test user account.<br>
+            Copy the token — it is valid for approximately <strong>60 days</strong>.<br>
+            Paste it into the <code>THREADS_ACCESS_TOKEN</code> field below.<br>
+            To refresh it before expiry, use the
+            <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noopener">Graph API Explorer</a>
+            or call the token-refresh endpoint documented in the Threads API docs.
+          </div>
+        </div>
+      </li>
+    </ol>
+    <div class="oauth-warning">
+      <strong>Missing permissions cause publishing errors.</strong>
+      If you see "permissions error" when posting, ensure all four permissions above are approved for your test user and regenerate the token.
+    </div>
+  </div>
+</div>
+
 <script>
 // ── MCP Catalog ────────────────────────────────────────────────────────────────
 const MCP_CATALOG = [
