@@ -54,7 +54,7 @@ impl Agent {
         self_weak: Weak<Agent>,
         job_tx: tokio::sync::mpsc::UnboundedSender<ScheduledJobRequest>,
     ) -> Self {
-        let llm = LlmClient::new(config.openrouter.clone());
+        let llm = LlmClient::new(config.llm.clone());
         Self {
             llm,
             config,
@@ -71,7 +71,7 @@ impl Agent {
 
     /// Build the system prompt, incorporating loaded skills
     fn build_system_prompt(&self) -> String {
-        let mut prompt = self.config.openrouter.system_prompt.clone();
+        let mut prompt = self.config.llm.system_prompt.clone();
 
         let skill_context = self.skills.build_context();
         if !skill_context.is_empty() {

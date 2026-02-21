@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use tracing::debug;
 
-use crate::config::OpenRouterConfig;
+use crate::config::LlmConfig;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatMessage {
@@ -66,11 +66,11 @@ struct Choice {
 
 pub struct LlmClient {
     client: reqwest::Client,
-    config: OpenRouterConfig,
+    config: LlmConfig,
 }
 
 impl LlmClient {
-    pub fn new(config: OpenRouterConfig) -> Self {
+    pub fn new(config: LlmConfig) -> Self {
         Self {
             client: reqwest::Client::new(),
             config,
@@ -88,11 +88,7 @@ impl LlmClient {
             Some(tools.to_vec())
         };
 
-        let tool_choice = if tools_param.is_some() {
-            Some("auto".to_string())
-        } else {
-            None
-        };
+        let tool_choice = tools_param.as_ref().map(|_| "auto".to_string());
 
         let request = ChatRequest {
             model: self.config.model.clone(),
@@ -102,36 +98,39 @@ impl LlmClient {
             max_tokens: self.config.max_tokens,
         };
 
-        let url = format!("{}/chat/completions", self.config.base_url);
+        let url = format!("{}/chat/completions", self.config.effective_base_url());
 
-        debug!("Sending request to OpenRouter: {}", url);
+        debug!("Sending LLM request to: {}", url);
 
-        let response = self
+        let mut req = self
             .client
             .post(&url)
-            .header("Authorization", format!("Bearer {}", self.config.api_key))
-            .header("Content-Type", "application/json")
+            .header("Content-Type", "application/json");
+        if !self.config.api_key.is_empty() {
+            req = req.bearer_auth(&self.config.api_key);
+        }
+        let response = req
             .json(&request)
             .send()
             .await
-            .context("Failed to send request to OpenRouter")?;
+            .context("Failed to send request to LLM provider")?;
 
         let status = response.status();
         if !status.is_success() {
             let error_body = response.text().await.unwrap_or_default();
-            anyhow::bail!("OpenRouter API error ({}): {}", status, error_body);
+            anyhow::bail!("LLM API error ({}): {}", status, error_body);
         }
 
         let chat_response: ChatResponse = response
             .json()
             .await
-            .context("Failed to parse OpenRouter response")?;
+            .context("Failed to parse LLM response")?;
 
         chat_response
             .choices
             .into_iter()
             .next()
             .map(|c| c.message)
-            .context("No response from OpenRouter")
+            .context("No choices in LLM response")
     }
 }

@@ -55,8 +55,10 @@ struct ExistingConfig {
     exists: bool,
     telegram_token: String,
     allowed_user_ids: String, // "123, 456" — ready for the text input
-    openrouter_key: String,
+    provider: String,         // "openrouter" | "ollama" | "openai"
+    llm_key: String,          // api_key (empty for ollama)
     model: String,
+    base_url: String,
     max_tokens: u32, // 0 = not set; frontend treats falsy as "use wizard default (4096)"
     system_prompt: String,
     location: String,
@@ -74,12 +76,29 @@ struct ExistingMcpServer {
     env: HashMap<String, String>,
 }
 
+#[derive(Serialize)]
+struct OllamaModelsResponse {
+    ok: bool,
+    models: Vec<String>,
+}
+
 // ── Raw TOML parse structs (loose — all fields optional so partial configs load) ──
+
+#[derive(Deserialize, Default)]
+struct RawLlm {
+    provider: Option<String>,
+    api_key: Option<String>,
+    model: Option<String>,
+    base_url: Option<String>,
+    max_tokens: Option<u32>,
+    system_prompt: Option<String>,
+}
 
 #[derive(Deserialize, Default)]
 struct RawConfig {
     telegram: Option<RawTelegram>,
-    openrouter: Option<RawOpenRouter>,
+    llm: Option<RawLlm>,               // new [llm] section
+    openrouter: Option<RawOpenRouter>, // kept for legacy configs
     sandbox: Option<RawSandbox>,
     memory: Option<RawMemory>,
     general: Option<RawGeneral>,
@@ -97,6 +116,7 @@ struct RawTelegram {
 struct RawOpenRouter {
     api_key: Option<String>,
     model: Option<String>,
+    base_url: Option<String>,
     max_tokens: Option<u32>,
     system_prompt: Option<String>,
 }
@@ -163,14 +183,50 @@ async fn load_config(State(state): State<AppState>) -> Json<ExistingConfig> {
     }
 }
 
+async fn list_ollama_models() -> Json<OllamaModelsResponse> {
+    #[derive(Deserialize)]
+    struct TagsResponse {
+        models: Vec<OllamaModel>,
+    }
+    #[derive(Deserialize)]
+    struct OllamaModel {
+        name: String,
+    }
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(3))
+        .build()
+        .expect("reqwest client build failed");
+
+    match client.get("http://localhost:11434/api/tags").send().await {
+        Ok(resp) if resp.status().is_success() => match resp.json::<TagsResponse>().await {
+            Ok(tags) => Json(OllamaModelsResponse {
+                ok: true,
+                models: tags.models.into_iter().map(|m| m.name).collect(),
+            }),
+            Err(_) => Json(OllamaModelsResponse {
+                ok: false,
+                models: vec![],
+            }),
+        },
+        _ => Json(OllamaModelsResponse {
+            ok: false,
+            models: vec![],
+        }),
+    }
+}
+
 // ── Config formatting ──────────────────────────────────────────────────────────
 
 struct ConfigParams<'a> {
     tg_token: &'a str,
     user_ids: &'a str,
-    or_key: &'a str,
+    provider: &'a str,
+    llm_key: &'a str,
     model: &'a str,
+    base_url: &'a str,
     max_tokens: u32,
+    system_prompt: &'a str,
     sandbox: &'a str,
     db_path: &'a str,
     location: &'a str,
@@ -192,40 +248,19 @@ fn format_config(p: &ConfigParams<'_>) -> String {
         format!("location = \"{}\"", p.location)
     };
 
-    let tg_token = p.tg_token;
-    let or_key = p.or_key;
-    let model = p.model;
-    let max_tokens = p.max_tokens;
-    let sandbox = p.sandbox;
-    let db_path = p.db_path;
-
     format!(
-        r#"[telegram]
-bot_token = "{tg_token}"
-allowed_user_ids = [{ids_str}]
-
-[openrouter]
-api_key = "{or_key}"
-model = "{model}"
-base_url = "https://openrouter.ai/api/v1"
-max_tokens = {max_tokens}
-system_prompt = """You are a helpful AI assistant with access to tools. \
-Use the available tools to help the user with their tasks. \
-When using file or terminal tools, operate only within the allowed sandbox directory. \
-Be concise and helpful."""
-
-[sandbox]
-allowed_directory = "{sandbox}"
-
-[memory]
-database_path = "{db_path}"
-
-[skills]
-directory = "skills"
-
-[general]
-{loc_line}
-"#
+        "[telegram]\nbot_token = \"{tg_token}\"\nallowed_user_ids = [{ids_str}]\n\n[llm]\nprovider = \"{provider}\"\nmodel = \"{model}\"\nbase_url = \"{base_url}\"\napi_key = \"{llm_key}\"\nmax_tokens = {max_tokens}\nsystem_prompt = \"\"\"{system_prompt}\"\"\"\n\n[sandbox]\nallowed_directory = \"{sandbox}\"\n\n[memory]\ndatabase_path = \"{db_path}\"\n\n[skills]\ndirectory = \"skills\"\n\n[general]\n{loc_line}\n",
+        tg_token = p.tg_token,
+        ids_str = ids_str,
+        provider = p.provider,
+        model = p.model,
+        base_url = p.base_url,
+        llm_key = p.llm_key,
+        max_tokens = p.max_tokens,
+        system_prompt = p.system_prompt,
+        sandbox = p.sandbox,
+        db_path = p.db_path,
+        loc_line = loc_line,
     )
 }
 
@@ -254,11 +289,33 @@ fn run_cli(project_root: &Path) -> Result<()> {
 
     let tg_token = read_line("Telegram bot token: ")?;
     let user_ids = read_line("Allowed user IDs (comma-separated): ")?;
-    let or_key = read_line("OpenRouter API key: ")?;
-    let model = or_default(
-        read_line("Model [moonshotai/kimi-k2.5]: ")?,
-        "moonshotai/kimi-k2.5",
+    let provider = or_default(
+        read_line("Provider [openrouter/ollama/openai] (default: openrouter): ")?,
+        "openrouter",
     );
+    let (llm_key, model, base_url) = match provider.as_str() {
+        "ollama" => {
+            let base = or_default(
+                read_line("Ollama base URL [http://localhost:11434/v1]: ")?,
+                "http://localhost:11434/v1",
+            );
+            let model = or_default(read_line("Model [qwen2.5:14b]: ")?, "qwen2.5:14b");
+            (String::new(), model, base)
+        }
+        "openai" => {
+            let key = read_line("OpenAI API key (sk-...): ")?;
+            let model = or_default(read_line("Model [gpt-4o]: ")?, "gpt-4o");
+            (key, model, "https://api.openai.com/v1".to_string())
+        }
+        _ => {
+            let key = read_line("OpenRouter API key: ")?;
+            let model = or_default(
+                read_line("Model [moonshotai/kimi-k2.5]: ")?,
+                "moonshotai/kimi-k2.5",
+            );
+            (key, model, "https://openrouter.ai/api/v1".to_string())
+        }
+    };
     let sandbox = or_default(
         read_line("Sandbox directory [/tmp/rustfox-sandbox]: ")?,
         "/tmp/rustfox-sandbox",
@@ -269,9 +326,12 @@ fn run_cli(project_root: &Path) -> Result<()> {
     let config = format_config(&ConfigParams {
         tg_token: &tg_token,
         user_ids: &user_ids,
-        or_key: &or_key,
+        provider: &provider,
+        llm_key: &llm_key,
         model: &model,
+        base_url: &base_url,
         max_tokens: 4096,
+        system_prompt: "You are a helpful AI assistant with access to tools. Use the available tools to help the user with their tasks. When using file or terminal tools, operate only within the allowed sandbox directory. Be concise and helpful.",
         sandbox: &sandbox,
         db_path: &db_path,
         location: &location,
@@ -314,6 +374,7 @@ async fn main() -> Result<()> {
         .route("/", get(serve_index))
         .route("/api/load-config", get(load_config))
         .route("/api/save-config", post(save_config))
+        .route("/api/ollama-models", get(list_ollama_models))
         .with_state(state);
 
     let addr = format!("127.0.0.1:{port}");
@@ -355,7 +416,6 @@ fn parse_existing_config(content: &str) -> ExistingConfig {
     };
 
     let tg = raw.telegram.unwrap_or_default();
-    let openrouter = raw.openrouter.unwrap_or_default();
     let sb = raw.sandbox.unwrap_or_default();
     let mem = raw.memory.unwrap_or_default();
 
@@ -370,6 +430,37 @@ fn parse_existing_config(content: &str) -> ExistingConfig {
         })
         .collect::<Vec<_>>()
         .join(", ");
+
+    // Prefer [llm]; fall back to [openrouter] for legacy configs.
+    let (provider, llm_key, model, base_url, max_tokens, system_prompt) = if let Some(llm) = raw.llm
+    {
+        (
+            llm.provider.unwrap_or_else(|| "openrouter".to_string()),
+            llm.api_key.unwrap_or_default(),
+            llm.model.unwrap_or_default(),
+            llm.base_url.unwrap_or_default(),
+            llm.max_tokens.unwrap_or(0),
+            llm.system_prompt.unwrap_or_default(),
+        )
+    } else if let Some(or) = raw.openrouter {
+        (
+            "openrouter".to_string(),
+            or.api_key.unwrap_or_default(),
+            or.model.unwrap_or_default(),
+            or.base_url.unwrap_or_default(),
+            or.max_tokens.unwrap_or(0),
+            or.system_prompt.unwrap_or_default(),
+        )
+    } else {
+        (
+            "openrouter".to_string(),
+            String::new(),
+            String::new(),
+            String::new(),
+            0,
+            String::new(),
+        )
+    };
 
     let mcp_servers = raw
         .mcp_servers
@@ -389,10 +480,12 @@ fn parse_existing_config(content: &str) -> ExistingConfig {
         exists: true,
         telegram_token: tg.bot_token.unwrap_or_default(),
         allowed_user_ids,
-        openrouter_key: openrouter.api_key.unwrap_or_default(),
-        model: openrouter.model.unwrap_or_default(),
-        max_tokens: openrouter.max_tokens.unwrap_or(0),
-        system_prompt: openrouter.system_prompt.unwrap_or_default(),
+        provider,
+        llm_key,
+        model,
+        base_url,
+        max_tokens,
+        system_prompt,
         location: raw
             .general
             .as_ref()
@@ -423,7 +516,8 @@ mod tests {
 bot_token = "mytoken123"
 allowed_user_ids = [111, 222]
 
-[openrouter]
+[llm]
+provider = "openrouter"
 api_key = "sk-or-test"
 model = "gpt-4o"
 max_tokens = 2048
@@ -442,7 +536,8 @@ location = "Tokyo, Japan"
         assert!(cfg.exists);
         assert_eq!(cfg.telegram_token, "mytoken123");
         assert_eq!(cfg.allowed_user_ids, "111, 222");
-        assert_eq!(cfg.openrouter_key, "sk-or-test");
+        assert_eq!(cfg.provider, "openrouter");
+        assert_eq!(cfg.llm_key, "sk-or-test");
         assert_eq!(cfg.model, "gpt-4o");
         assert_eq!(cfg.max_tokens, 2048);
         assert_eq!(cfg.system_prompt, "Be helpful.");
@@ -459,7 +554,8 @@ location = "Tokyo, Japan"
 bot_token = "t"
 allowed_user_ids = [1]
 
-[openrouter]
+[llm]
+provider = "openrouter"
 api_key = "k"
 
 [sandbox]
@@ -514,7 +610,8 @@ allowed_user_ids = [42]
 bot_token = "t"
 allowed_user_ids = ["111", "222"]
 
-[openrouter]
+[llm]
+provider = "openrouter"
 api_key = "k"
 
 [sandbox]
@@ -528,7 +625,7 @@ allowed_directory = "/tmp"
     fn cfg(
         tg_token: &str,
         user_ids: &str,
-        or_key: &str,
+        llm_key: &str,
         model: &str,
         sandbox: &str,
         db_path: &str,
@@ -537,9 +634,12 @@ allowed_directory = "/tmp"
         format_config(&ConfigParams {
             tg_token,
             user_ids,
-            or_key,
+            provider: "openrouter",
+            llm_key,
             model,
+            base_url: "https://openrouter.ai/api/v1",
             max_tokens: 4096,
+            system_prompt: "",
             sandbox,
             db_path,
             location,
@@ -555,9 +655,10 @@ allowed_directory = "/tmp"
     }
 
     #[test]
-    fn test_openrouter_section_present() {
+    fn test_llm_section_present() {
         let out = cfg("t", "1", "sk-or-abc", "gpt-4o", "/tmp", "db.db", "");
-        assert!(out.contains("[openrouter]"));
+        assert!(out.contains("[llm]"));
+        assert!(out.contains(r#"provider = "openrouter""#));
         assert!(out.contains(r#"api_key = "sk-or-abc""#));
         assert!(out.contains(r#"model = "gpt-4o""#));
         assert!(out.contains("max_tokens = 4096"));
@@ -612,5 +713,28 @@ allowed_directory = "/tmp"
         let out = cfg("t", "1", "k", "m", "/tmp", "db.db", "");
         assert!(out.contains("[skills]"));
         assert!(out.contains(r#"directory = "skills""#));
+    }
+
+    #[test]
+    fn test_parse_legacy_openrouter_config() {
+        let toml = r#"
+[telegram]
+bot_token = "t"
+allowed_user_ids = [1]
+
+[openrouter]
+api_key = "sk-or-legacy"
+model = "old-model"
+max_tokens = 1024
+
+[sandbox]
+allowed_directory = "/tmp"
+"#;
+        let cfg = parse_existing_config(toml);
+        assert!(cfg.exists);
+        assert_eq!(cfg.provider, "openrouter");
+        assert_eq!(cfg.llm_key, "sk-or-legacy");
+        assert_eq!(cfg.model, "old-model");
+        assert_eq!(cfg.max_tokens, 1024);
     }
 }

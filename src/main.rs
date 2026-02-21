@@ -45,7 +45,8 @@ async fn main() -> Result<()> {
         .with_context(|| format!("Failed to load config from {}", config_path.display()))?;
 
     info!("Configuration loaded successfully");
-    info!("  Model: {}", config.openrouter.model);
+    info!("  Provider: {}", config.llm.provider);
+    info!("  Model: {}", config.llm.model);
     info!("  Sandbox: {}", config.sandbox.allowed_directory.display());
     info!("  Allowed users: {:?}", config.telegram.allowed_user_ids);
     info!("  MCP servers: {}", config.mcp_servers.len());
