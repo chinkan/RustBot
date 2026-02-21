@@ -506,7 +506,8 @@ mod tests {
 bot_token = "mytoken123"
 allowed_user_ids = [111, 222]
 
-[openrouter]
+[llm]
+provider = "openrouter"
 api_key = "sk-or-test"
 model = "gpt-4o"
 max_tokens = 2048
@@ -525,7 +526,8 @@ location = "Tokyo, Japan"
         assert!(cfg.exists);
         assert_eq!(cfg.telegram_token, "mytoken123");
         assert_eq!(cfg.allowed_user_ids, "111, 222");
-        assert_eq!(cfg.openrouter_key, "sk-or-test");
+        assert_eq!(cfg.provider, "openrouter");
+        assert_eq!(cfg.llm_key, "sk-or-test");
         assert_eq!(cfg.model, "gpt-4o");
         assert_eq!(cfg.max_tokens, 2048);
         assert_eq!(cfg.system_prompt, "Be helpful.");
@@ -542,7 +544,8 @@ location = "Tokyo, Japan"
 bot_token = "t"
 allowed_user_ids = [1]
 
-[openrouter]
+[llm]
+provider = "openrouter"
 api_key = "k"
 
 [sandbox]
@@ -597,7 +600,8 @@ allowed_user_ids = [42]
 bot_token = "t"
 allowed_user_ids = ["111", "222"]
 
-[openrouter]
+[llm]
+provider = "openrouter"
 api_key = "k"
 
 [sandbox]
@@ -611,7 +615,7 @@ allowed_directory = "/tmp"
     fn cfg(
         tg_token: &str,
         user_ids: &str,
-        or_key: &str,
+        llm_key: &str,
         model: &str,
         sandbox: &str,
         db_path: &str,
@@ -620,9 +624,12 @@ allowed_directory = "/tmp"
         format_config(&ConfigParams {
             tg_token,
             user_ids,
-            or_key,
+            provider: "openrouter",
+            llm_key,
             model,
+            base_url: "https://openrouter.ai/api/v1",
             max_tokens: 4096,
+            system_prompt: "",
             sandbox,
             db_path,
             location,
@@ -638,9 +645,10 @@ allowed_directory = "/tmp"
     }
 
     #[test]
-    fn test_openrouter_section_present() {
+    fn test_llm_section_present() {
         let out = cfg("t", "1", "sk-or-abc", "gpt-4o", "/tmp", "db.db", "");
-        assert!(out.contains("[openrouter]"));
+        assert!(out.contains("[llm]"));
+        assert!(out.contains(r#"provider = "openrouter""#));
         assert!(out.contains(r#"api_key = "sk-or-abc""#));
         assert!(out.contains(r#"model = "gpt-4o""#));
         assert!(out.contains("max_tokens = 4096"));
