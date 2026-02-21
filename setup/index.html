@@ -146,6 +146,140 @@
   }
   .mcp-more a { color: #f6851b; text-decoration: none; }
   .mcp-more a:hover { text-decoration: underline; }
+  /* OAuth guide button */
+  .btn-guide {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin-left: 1.75rem;
+    margin-top: 0.55rem;
+    padding: 0.3rem 0.75rem;
+    border-radius: 6px;
+    border: 1px solid #f6851b;
+    background: transparent;
+    color: #f6851b;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .btn-guide:hover { background: #f6851b; color: #fff; opacity: 1; }
+  /* Modal overlay */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.72);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: #1a1f2e;
+    border: 1px solid #2d3748;
+    border-radius: 16px;
+    width: 100%;
+    max-width: 560px;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 2rem;
+    position: relative;
+  }
+  .modal-close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: none;
+    border: none;
+    color: #718096;
+    font-size: 1.25rem;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    transition: color 0.15s;
+  }
+  .modal-close:hover { color: #e2e8f0; opacity: 1; }
+  .modal-box h3 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #e2e8f0;
+    margin-bottom: 0.3rem;
+  }
+  .modal-subtitle {
+    font-size: 0.8rem;
+    color: #718096;
+    margin-bottom: 1.5rem;
+    line-height: 1.5;
+  }
+  /* OAuth step list */
+  .oauth-steps { list-style: none; counter-reset: oauth-counter; }
+  .oauth-step {
+    counter-increment: oauth-counter;
+    display: flex;
+    gap: 0.875rem;
+    margin-bottom: 1.25rem;
+  }
+  .oauth-step:last-child { margin-bottom: 0; }
+  .oauth-step-num {
+    flex-shrink: 0;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 50%;
+    background: #f6851b;
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 0.05rem;
+  }
+  .oauth-step-body { flex: 1; }
+  .oauth-step-title {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #e2e8f0;
+    margin-bottom: 0.3rem;
+  }
+  .oauth-step-desc {
+    font-size: 0.8rem;
+    color: #a0aec0;
+    line-height: 1.65;
+  }
+  .oauth-step-desc a {
+    color: #f6851b;
+    text-decoration: none;
+    font-weight: 600;
+  }
+  .oauth-step-desc a:hover { text-decoration: underline; }
+  .scope-list {
+    margin: 0.4rem 0 0 0;
+    padding: 0.5rem 0.75rem;
+    background: #0f1117;
+    border: 1px solid #2d3748;
+    border-radius: 6px;
+    list-style: none;
+  }
+  .scope-list li {
+    font-family: monospace;
+    font-size: 0.73rem;
+    color: #68d391;
+    padding: 0.1rem 0;
+    line-height: 1.7;
+  }
+  .oauth-warning {
+    margin-top: 1.25rem;
+    padding: 0.6rem 0.875rem;
+    background: #2d1a0a;
+    border: 1px solid #744210;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    color: #fbd38d;
+    line-height: 1.6;
+  }
   /* Custom MCP server section */
   .custom-mcp-section { margin-top: 1.75rem; border-top: 1px solid #2d3748; padding-top: 1.25rem; }
   .custom-mcp-section h3 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: #718096; margin-bottom: 0.75rem; }
@@ -212,6 +346,78 @@
   </div>
 </div>
 
+<!-- OAuth Setup Modal -->
+<div class="modal-overlay" id="oauth-modal" onclick="closeOAuthModal(event)">
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="oauth-modal-title">
+    <button class="modal-close" onclick="closeOAuthModal()" aria-label="Close">&#x2715;</button>
+    <h3 id="oauth-modal-title">Google Workspace — OAuth Setup</h3>
+    <p class="modal-subtitle">Follow these 4 steps to generate your refresh token. You only need to do this once.</p>
+    <ol class="oauth-steps">
+      <li class="oauth-step">
+        <div class="oauth-step-num">1</div>
+        <div class="oauth-step-body">
+          <div class="oauth-step-title">Enable APIs in Google Cloud Console</div>
+          <div class="oauth-step-desc">
+            Open <a href="https://console.cloud.google.com/apis/library" target="_blank" rel="noopener">console.cloud.google.com/apis/library</a>,
+            create or select a project, then enable all six APIs:<br>
+            <strong>Google Drive API, Gmail API, Google Calendar API, Google Docs API, Google Sheets API, Google Slides API.</strong>
+          </div>
+        </div>
+      </li>
+      <li class="oauth-step">
+        <div class="oauth-step-num">2</div>
+        <div class="oauth-step-body">
+          <div class="oauth-step-title">Configure OAuth Consent Screen &amp; Credentials</div>
+          <div class="oauth-step-desc">
+            Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">APIs &amp; Services → Credentials</a>.<br>
+            &bull; <em>OAuth consent screen</em> → External → add your Google account as a <strong>Test user</strong>.<br>
+            &bull; <em>+ Create Credentials</em> → <strong>OAuth Client ID</strong> → Application type: <strong>Web application</strong>.<br>
+            &bull; Under <em>Authorised redirect URIs</em> add exactly:<br>
+            <code style="font-size:0.72rem">https://developers.google.com/oauthplayground</code><br>
+            Save and copy your <strong>Client ID</strong> and <strong>Client Secret</strong>.
+          </div>
+        </div>
+      </li>
+      <li class="oauth-step">
+        <div class="oauth-step-num">3</div>
+        <div class="oauth-step-body">
+          <div class="oauth-step-title">Authorise Scopes in OAuth Playground</div>
+          <div class="oauth-step-desc">
+            Open <a href="https://developers.google.com/oauthplayground" target="_blank" rel="noopener">developers.google.com/oauthplayground</a>.<br>
+            &bull; Click the <strong>&#x2699; gear icon</strong> (top-right) → tick <em>"Use your own OAuth credentials"</em>
+            → paste your <strong>Client ID</strong> and <strong>Client Secret</strong>.<br>
+            &bull; In the scope input, paste each scope below and click <strong>Add to scopes</strong>, then click <strong>Authorise APIs</strong>:
+            <ul class="scope-list">
+              <li>https://www.googleapis.com/auth/drive</li>
+              <li>https://www.googleapis.com/auth/gmail.modify</li>
+              <li>https://www.googleapis.com/auth/calendar</li>
+              <li>https://www.googleapis.com/auth/documents</li>
+              <li>https://www.googleapis.com/auth/spreadsheets</li>
+              <li>https://www.googleapis.com/auth/presentations</li>
+            </ul>
+            Sign in with the Google account you added as a test user.
+          </div>
+        </div>
+      </li>
+      <li class="oauth-step">
+        <div class="oauth-step-num">4</div>
+        <div class="oauth-step-body">
+          <div class="oauth-step-title">Exchange Code &amp; Copy the Refresh Token</div>
+          <div class="oauth-step-desc">
+            After authorising, click <strong>"Exchange authorization code for tokens"</strong>.<br>
+            Copy the value of <strong>Refresh token</strong> and paste it into the
+            <code>GOOGLE_WORKSPACE_REFRESH_TOKEN</code> field below.
+          </div>
+        </div>
+      </li>
+    </ol>
+    <div class="oauth-warning">
+      <strong>Missing even one scope causes 403 errors.</strong>
+      If you see "insufficient authentication scopes", repeat from Step 3 with all six scopes included and generate a new refresh token.
+    </div>
+  </div>
+</div>
+
 <script>
 // ── MCP Catalog ────────────────────────────────────────────────────────────────
 const MCP_CATALOG = [
@@ -219,7 +425,7 @@ const MCP_CATALOG = [
   { name:'brave-search',     category:'Browser & Web',      desc:'Real-time web search via Brave',               runner:'npx', args:['-y','@brave/brave-search-mcp-server'],          envVars:['BRAVE_API_KEY'],                            link:'https://www.npmjs.com/package/@brave/brave-search-mcp-server' },
   { name:'firecrawl',        category:'Browser & Web',      desc:'URL to clean Markdown scraping',               runner:'npx', args:['-y','firecrawl-mcp'],                            envVars:['FIRECRAWL_API_KEY'],                        link:'https://www.npmjs.com/package/firecrawl-mcp' },
   { name:'fetch',            category:'Browser & Web',      desc:'Lightweight page fetching',                    runner:'uvx', args:['mcp-server-fetch'],                              envVars:[],                                           link:'https://pypi.org/project/mcp-server-fetch' },
-  { name:'google-workspace', category:'Productivity',       desc:'Gmail, Calendar, Drive, Docs',                 runner:'uvx', args:['--from','google-workspace-mcp','google-workspace-worker'], envVars:['GOOGLE_WORKSPACE_CLIENT_ID','GOOGLE_WORKSPACE_CLIENT_SECRET','GOOGLE_WORKSPACE_REFRESH_TOKEN','GOOGLE_WORKSPACE_ENABLED_CAPABILITIES'], envDefaults:{'GOOGLE_WORKSPACE_ENABLED_CAPABILITIES':'["drive","docs","gmail","calendar","sheets","slides"]'}, setupGuide:'<strong>OAuth setup — 4 steps:</strong><br>1. <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">Google Cloud Console</a> → Create/select project → enable Drive, Gmail, Calendar, Docs, Sheets &amp; Slides APIs<br>2. <em>OAuth consent screen</em> → External → add your email as a test user<br>3. <em>Credentials</em> → OAuth Client ID → <strong>Web application</strong> → Authorised redirect URI: <code>https://developers.google.com/oauthplayground</code><br>4. <a href="https://developers.google.com/oauthplayground" target="_blank" rel="noopener">OAuth Playground</a> → ⚙ → "Use your own OAuth credentials" → enter Client ID + Secret → add <strong>all 6 scopes below</strong> (missing any one causes 403 errors) → Authorize APIs → Exchange code → copy <strong>Refresh token</strong><br><code style="display:block;margin:0.35rem 0 0.1rem 0;font-size:0.72rem">https://www.googleapis.com/auth/drive</code><code style="display:block;margin:0.1rem 0;font-size:0.72rem">https://www.googleapis.com/auth/gmail.modify</code><code style="display:block;margin:0.1rem 0;font-size:0.72rem">https://www.googleapis.com/auth/calendar</code><code style="display:block;margin:0.1rem 0;font-size:0.72rem">https://www.googleapis.com/auth/documents</code><code style="display:block;margin:0.1rem 0;font-size:0.72rem">https://www.googleapis.com/auth/spreadsheets</code><code style="display:block;margin:0.1rem 0 0;font-size:0.72rem">https://www.googleapis.com/auth/presentations</code>',  link:'https://pypi.org/project/google-workspace-mcp' },
+  { name:'google-workspace', category:'Productivity',       desc:'Gmail, Calendar, Drive, Docs',                 runner:'uvx', args:['--from','google-workspace-mcp','google-workspace-worker'], envVars:['GOOGLE_WORKSPACE_CLIENT_ID','GOOGLE_WORKSPACE_CLIENT_SECRET','GOOGLE_WORKSPACE_REFRESH_TOKEN','GOOGLE_WORKSPACE_ENABLED_CAPABILITIES'], envDefaults:{'GOOGLE_WORKSPACE_ENABLED_CAPABILITIES':'["drive","docs","gmail","calendar","sheets","slides"]'}, setupGuide:'__OAUTH_GUIDE_BUTTON__', link:'https://pypi.org/project/google-workspace-mcp' },
   { name:'notion',           category:'Productivity',       desc:'Read/write Notion workspace',                  runner:'npx', args:['-y','@notionhq/notion-mcp-server'],              envVars:['NOTION_API_KEY'],                           link:'https://www.npmjs.com/package/@notionhq/notion-mcp-server' },
   { name:'obsidian',         category:'Productivity',       desc:'Local Obsidian vault access',                  runner:'npx', args:['-y','obsidian-mcp'],                             envVars:[],                                           link:'https://www.npmjs.com/package/obsidian-mcp' },
   { name:'slack',            category:'Communication',      desc:'Read channels, post Slack messages',           runner:'npx', args:['-y','@modelcontextprotocol/server-slack'],         envVars:['SLACK_BOT_TOKEN'],                          link:'https://www.npmjs.com/package/@modelcontextprotocol/server-slack' },
@@ -676,7 +882,12 @@ function buildSteps() {
                  oninput="setEnv('${tool.name}','${k}',this.value)">
         </div>`;
       }).join('');
-      const guideHtml = tool.setupGuide ? `<div class="mcp-setup-guide" onclick="event.stopPropagation()">${tool.setupGuide}</div>` : '';
+      let guideHtml = '';
+      if (tool.setupGuide === '__OAUTH_GUIDE_BUTTON__') {
+        guideHtml = `<button class="btn-guide" onclick="event.stopPropagation();openOAuthModal()" type="button">&#9432; OAuth Setup Guide</button>`;
+      } else if (tool.setupGuide) {
+        guideHtml = `<div class="mcp-setup-guide" onclick="event.stopPropagation()">${tool.setupGuide}</div>`;
+      }
       const hasExtras = tool.envVars.length || tool.setupGuide;
       const linkHtml = tool.link
         ? `<a class="mcp-tool-link" href="${tool.link}" target="_blank" rel="noopener" onclick="event.stopPropagation()">docs ↗</a>`
@@ -766,6 +977,26 @@ function buildSteps() {
   </div>
 </div>`;
 }
+
+// ── OAuth Modal ─────────────────────────────────────────────────────────────────
+function openOAuthModal() {
+  document.getElementById('oauth-modal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeOAuthModal(event) {
+  // Close when clicking the overlay backdrop (not the modal box itself)
+  if (event && event.target !== document.getElementById('oauth-modal')) return;
+  document.getElementById('oauth-modal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    document.getElementById('oauth-modal').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+});
 
 async function init() {
   await loadExistingConfig();
