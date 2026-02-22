@@ -17,7 +17,11 @@ fn split_message(text: &str, max_len: usize) -> Vec<String> {
     let mut start = 0;
 
     while start < text.len() {
-        let end = (start + max_len).min(text.len());
+        let mut end = (start + max_len).min(text.len());
+        // Walk back to a valid UTF-8 char boundary so slicing doesn't panic
+        while end > start && !text.is_char_boundary(end) {
+            end -= 1;
+        }
         let actual_end = if end < text.len() {
             text[start..end]
                 .rfind('\n')
