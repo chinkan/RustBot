@@ -8,7 +8,8 @@ use rmcp::{
 use serde_json::Value;
 use std::collections::HashMap;
 use tokio::process::Command;
-use tracing::{error, info};
+use tokio::sync::Mutex;
+use tracing::{error, info, warn};
 
 use crate::config::McpServerConfig;
 use crate::llm::{FunctionDefinition, ToolDefinition};
@@ -16,13 +17,40 @@ use crate::llm::{FunctionDefinition, ToolDefinition};
 /// Represents a connected MCP server with its tools
 pub struct McpConnection {
     pub name: String,
-    pub client: RunningService<rmcp::service::RoleClient, ()>,
+    /// Mutex serializes concurrent calls to prevent the stdio MCP server from
+    /// receiving interleaved requests it cannot handle.
+    pub client: Mutex<RunningService<rmcp::service::RoleClient, ()>>,
+    /// Stored config allows reconnecting if the subprocess crashes.
+    pub config: McpServerConfig,
     pub tools: Vec<McpTool>,
 }
 
 /// Manages multiple MCP server connections
 pub struct McpManager {
     connections: HashMap<String, McpConnection>,
+}
+
+/// Start a fresh MCP client subprocess for the given config.
+async fn start_client(
+    config: &McpServerConfig,
+) -> Result<RunningService<rmcp::service::RoleClient, ()>> {
+    let args = config.args.clone();
+    let env = config.env.clone();
+    let command_str = config.command.clone();
+
+    let transport = TokioChildProcess::new(Command::new(&command_str).configure(move |cmd| {
+        for arg in &args {
+            cmd.arg(arg);
+        }
+        for (key, value) in &env {
+            cmd.env(key, value);
+        }
+    }))
+    .with_context(|| format!("Failed to start MCP server process: {}", config.name))?;
+
+    ().serve(transport)
+        .await
+        .with_context(|| format!("Failed to initialize MCP connection: {}", config.name))
 }
 
 impl McpManager {
@@ -39,24 +67,7 @@ impl McpManager {
             config.name, config.command, config.args
         );
 
-        let args = config.args.clone();
-        let env = config.env.clone();
-        let command_str = config.command.clone();
-
-        let transport = TokioChildProcess::new(Command::new(&command_str).configure(move |cmd| {
-            for arg in &args {
-                cmd.arg(arg);
-            }
-            for (key, value) in &env {
-                cmd.env(key, value);
-            }
-        }))
-        .with_context(|| format!("Failed to start MCP server process: {}", config.name))?;
-
-        let client = ()
-            .serve(transport)
-            .await
-            .with_context(|| format!("Failed to initialize MCP connection: {}", config.name))?;
+        let client = start_client(config).await?;
 
         let server_info = client.peer_info();
         info!(
@@ -82,7 +93,8 @@ impl McpManager {
             config.name.clone(),
             McpConnection {
                 name: config.name.clone(),
-                client,
+                client: Mutex::new(client),
+                config: config.clone(),
                 tools,
             },
         );
@@ -124,7 +136,14 @@ impl McpManager {
         definitions
     }
 
-    /// Find which MCP server owns a tool and call it
+    /// Find which MCP server owns a tool and call it.
+    ///
+    /// Concurrent calls to the same server are serialized via a per-connection
+    /// Mutex to prevent the stdio-based Python subprocess from receiving
+    /// interleaved JSON-RPC requests it cannot reliably handle.
+    ///
+    /// If the first attempt fails (e.g. because the subprocess crashed), the
+    /// connection is transparently reconnected and the call is retried once.
     pub async fn call_tool(&self, prefixed_name: &str, arguments: &Value) -> Result<String> {
         // Tool names are prefixed with "mcp_{server_name}_{tool_name}"
         let without_mcp = prefixed_name
@@ -146,33 +165,56 @@ impl McpManager {
                         tool_name, connection.name
                     );
 
-                    let tool_name_owned: std::borrow::Cow<'static, str> =
-                        std::borrow::Cow::Owned(tool_name.to_string());
-                    let result = connection
-                        .client
-                        .call_tool(CallToolRequestParams {
-                            meta: None,
-                            name: tool_name_owned,
-                            arguments: arguments.as_object().cloned(),
-                            task: None,
-                        })
-                        .await
-                        .with_context(|| {
-                            format!(
-                                "Failed to call MCP tool '{}' on server '{}'",
-                                tool_name, connection.name
-                            )
-                        })?;
+                    let make_params = || CallToolRequestParams {
+                        meta: None,
+                        name: std::borrow::Cow::Owned(tool_name.to_string()),
+                        arguments: arguments.as_object().cloned(),
+                        task: None,
+                    };
+
+                    // Serialize calls to this server to avoid concurrent stdio issues.
+                    let mut client_guard = connection.client.lock().await;
+
+                    let call_result = match client_guard.call_tool(make_params()).await {
+                        Ok(r) => r,
+                        Err(first_err) => {
+                            warn!(
+                                "MCP tool '{}' on server '{}' failed: {}. Reconnecting...",
+                                tool_name, connection.name, first_err
+                            );
+                            // The subprocess likely crashed; reconnect and retry once.
+                            match start_client(&connection.config).await {
+                                Ok(new_client) => {
+                                    *client_guard = new_client;
+                                    client_guard.call_tool(make_params()).await.with_context(
+                                        || {
+                                            format!(
+                                                "Failed to call MCP tool '{}' on server '{}' after reconnect",
+                                                tool_name, connection.name
+                                            )
+                                        },
+                                    )?
+                                }
+                                Err(reconnect_err) => {
+                                    anyhow::bail!(
+                                        "MCP server '{}' crashed and reconnect failed: {}",
+                                        connection.name,
+                                        reconnect_err
+                                    );
+                                }
+                            }
+                        }
+                    };
 
                     // Extract text content from the result
-                    let text_parts: Vec<String> = result
+                    let text_parts: Vec<String> = call_result
                         .content
                         .iter()
                         .filter_map(|c| c.raw.as_text().map(|t| t.text.clone()))
                         .collect();
 
                     if text_parts.is_empty() {
-                        return Ok(format!("{:?}", result.content));
+                        return Ok(format!("{:?}", call_result.content));
                     }
                     return Ok(text_parts.join("\n"));
                 }
@@ -192,7 +234,8 @@ impl McpManager {
     pub async fn shutdown(&mut self) {
         for (name, connection) in self.connections.drain() {
             info!("Shutting down MCP server: {}", name);
-            if let Err(e) = connection.client.cancel().await {
+            // into_inner() consumes the Mutex without locking (safe since we have &mut self)
+            if let Err(e) = connection.client.into_inner().cancel().await {
                 error!("Error shutting down MCP server '{}': {}", name, e);
             }
         }
