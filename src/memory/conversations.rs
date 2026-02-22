@@ -49,7 +49,8 @@ impl MemoryStore {
         Ok(id)
     }
 
-    /// Save a message to a conversation, with optional vector embedding
+    /// Save a message to a conversation, with optional vector embedding.
+    /// Embedding generation happens in the background so this returns quickly.
     pub async fn save_message(
         &self,
         conversation_id: &str,
@@ -61,16 +62,10 @@ impl MemoryStore {
             .as_ref()
             .map(|tc| serde_json::to_string(tc).unwrap_or_default());
 
-        // Generate embedding before acquiring the DB lock (async HTTP call)
-        let embedding = if let Some(content) = &message.content {
-            if !content.is_empty() && message.role != "tool" {
-                self.embeddings.try_embed_one(content).await
-            } else {
-                None
-            }
-        } else {
-            None
-        };
+        // Determine whether this message should be embedded
+        let should_embed = self.embeddings.is_available()
+            && message.content.as_ref().is_some_and(|c| !c.is_empty())
+            && message.role != "tool";
 
         let conn = self.conn.lock().await;
 
@@ -96,13 +91,26 @@ impl MemoryStore {
             rusqlite::params![conversation_id],
         )?;
 
-        // Store vector embedding if available
-        if let Some(ref emb) = embedding {
-            let embedding_bytes = f32_slice_to_bytes(emb);
-            conn.execute(
-                "INSERT INTO message_embeddings (rowid, embedding) VALUES (?1, ?2)",
-                rusqlite::params![rowid, embedding_bytes],
-            )?;
+        // Release DB lock before spawning background embedding task
+        drop(conn);
+
+        // Generate and store the vector embedding in the background so the
+        // caller isn't blocked waiting for the embedding API roundtrip.
+        if should_embed {
+            if let Some(content) = message.content.clone() {
+                let conn_bg = std::sync::Arc::clone(&self.conn);
+                let embeddings_bg = std::sync::Arc::clone(&self.embeddings);
+                tokio::spawn(async move {
+                    if let Some(emb) = embeddings_bg.try_embed_one(&content).await {
+                        let conn = conn_bg.lock().await;
+                        let embedding_bytes = f32_slice_to_bytes(&emb);
+                        let _ = conn.execute(
+                            "INSERT INTO message_embeddings (rowid, embedding) VALUES (?1, ?2)",
+                            rusqlite::params![rowid, embedding_bytes],
+                        );
+                    }
+                });
+            }
         }
 
         Ok(id)
@@ -166,11 +174,15 @@ impl MemoryStore {
     }
 
     /// Hybrid search across messages using Reciprocal Rank Fusion (vector + FTS5).
-    /// Falls back to FTS5-only if embeddings are not available.
-    pub async fn search_messages(&self, query: &str, limit: usize) -> Result<Vec<ChatMessage>> {
-        // Try to get query embedding for vector search
-        let query_embedding = self.embeddings.try_embed_one(query).await;
-
+    /// Pass `query_embedding = None` to fall back to FTS5-only search.
+    /// Use a pre-computed embedding to avoid redundant API calls when the
+    /// caller already has one (e.g. sharing it with `search_knowledge_with_embedding`).
+    pub async fn search_messages_with_embedding(
+        &self,
+        query: &str,
+        query_embedding: Option<Vec<f32>>,
+        limit: usize,
+    ) -> Result<Vec<ChatMessage>> {
         let conn = self.conn.lock().await;
 
         if let Some(ref qe) = query_embedding {

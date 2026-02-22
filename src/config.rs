@@ -88,6 +88,11 @@ pub struct GeneralConfig {
 pub struct AgentConfig {
     #[serde(default = "default_max_iterations")]
     pub max_iterations: u32,
+    /// Maximum number of non-system messages kept in the LLM context window.
+    /// Older messages are trimmed from the front (system prompt is always kept).
+    /// 0 means unlimited (default: 100).
+    #[serde(default = "default_context_window")]
+    pub context_window: usize,
 }
 
 fn default_model() -> String {
@@ -145,9 +150,14 @@ fn default_max_iterations() -> u32 {
     25
 }
 
+fn default_context_window() -> usize {
+    100
+}
+
 fn default_agent_config() -> AgentConfig {
     AgentConfig {
         max_iterations: default_max_iterations(),
+        context_window: default_context_window(),
     }
 }
 
@@ -160,6 +170,11 @@ impl Config {
     /// Maximum agent loop iterations (from [agent] max_iterations, default 25).
     pub fn max_iterations(&self) -> u32 {
         self.agent.max_iterations
+    }
+
+    /// Maximum non-system messages sent to the LLM (0 = unlimited, default 100).
+    pub fn context_window(&self) -> usize {
+        self.agent.context_window
     }
 
     pub fn load(path: &Path) -> Result<Self> {

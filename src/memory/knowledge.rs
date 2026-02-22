@@ -93,10 +93,15 @@ impl MemoryStore {
     }
 
     /// Hybrid search across knowledge using Reciprocal Rank Fusion (vector + FTS5).
-    /// Falls back to FTS5-only if embeddings are not available.
-    pub async fn search_knowledge(&self, query: &str, limit: usize) -> Result<Vec<KnowledgeEntry>> {
-        let query_embedding = self.embeddings.try_embed_one(query).await;
-
+    /// Pass `query_embedding = None` to fall back to FTS5-only search.
+    /// Use a pre-computed embedding to avoid redundant API calls when the
+    /// caller already has one (e.g. sharing it with `search_messages_with_embedding`).
+    pub async fn search_knowledge_with_embedding(
+        &self,
+        query: &str,
+        query_embedding: Option<Vec<f32>>,
+        limit: usize,
+    ) -> Result<Vec<KnowledgeEntry>> {
         let conn = self.conn.lock().await;
 
         if let Some(ref qe) = query_embedding {

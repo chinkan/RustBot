@@ -142,10 +142,28 @@ async fn handle_message(bot: Bot, msg: Message, agent: Arc<Agent>) -> ResponseRe
         return Ok(());
     }
 
-    // Send "typing" indicator
+    // Send "typing" indicator and keep refreshing it every 4 seconds.
+    // Telegram's typing status expires after ~5 s; we refresh before it lapses
+    // so the user always sees activity feedback during long LLM calls.
     bot.send_chat_action(msg.chat.id, teloxide::types::ChatAction::Typing)
         .await
         .ok();
+    let typing_bot = bot.clone();
+    let typing_chat_id = msg.chat.id;
+    let typing_handle = tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(4));
+        interval.tick().await; // consume the immediate first tick
+        loop {
+            interval.tick().await;
+            if typing_bot
+                .send_chat_action(typing_chat_id, teloxide::types::ChatAction::Typing)
+                .await
+                .is_err()
+            {
+                break;
+            }
+        }
+    });
 
     // Build platform-agnostic message
     let incoming = IncomingMessage {
@@ -157,7 +175,9 @@ async fn handle_message(bot: Bot, msg: Message, agent: Arc<Agent>) -> ResponseRe
     };
 
     // Process through agent
-    match agent.process_message(&incoming).await {
+    let result = agent.process_message(&incoming).await;
+    typing_handle.abort(); // Stop the typing refresh task
+    match result {
         Ok(response) => {
             for chunk in split_message(&response, 4000) {
                 bot.send_message(msg.chat.id, chunk).await.ok();

@@ -154,8 +154,10 @@ impl Agent {
 
         // Agentic loop — keep calling LLM until we get a non-tool response
         let max_iterations = self.config.max_iterations();
+        let context_window = self.config.context_window();
         for iteration in 0..max_iterations {
-            let response = self.llm.chat(&messages, &all_tools).await?;
+            let windowed = apply_context_window(&messages, context_window);
+            let response = self.llm.chat(&windowed, &all_tools).await?;
 
             if let Some(tool_calls) = &response.tool_calls {
                 if !tool_calls.is_empty() {
@@ -171,27 +173,33 @@ impl Agent {
                         .await?;
                     messages.push(response.clone());
 
-                    // Execute each tool call
-                    for tool_call in tool_calls {
+                    // Execute tool calls in parallel — each tool is independent
+                    let tool_futures = tool_calls.iter().map(|tc| {
+                        let id = tc.id.clone();
+                        let name = tc.function.name.clone();
                         let arguments: serde_json::Value =
-                            serde_json::from_str(&tool_call.function.arguments)
+                            serde_json::from_str(&tc.function.arguments)
                                 .unwrap_or(serde_json::Value::Object(serde_json::Map::new()));
+                        async move {
+                            let result =
+                                self.execute_tool(&name, &arguments, user_id, chat_id).await;
+                            (id, name, result)
+                        }
+                    });
+                    let tool_results = futures::future::join_all(tool_futures).await;
 
-                        let tool_result = self
-                            .execute_tool(&tool_call.function.name, &arguments, user_id, chat_id)
-                            .await;
-
+                    // Save results in order (preserves message ordering in DB)
+                    for (tool_call_id, tool_name, tool_result) in tool_results {
                         info!(
                             "Tool '{}' result length: {} chars",
-                            tool_call.function.name,
+                            tool_name,
                             tool_result.len()
                         );
-
                         let tool_msg = ChatMessage {
                             role: "tool".to_string(),
                             content: Some(tool_result),
                             tool_calls: None,
-                            tool_call_id: Some(tool_call.id.clone()),
+                            tool_call_id: Some(tool_call_id),
                         };
                         self.memory
                             .save_message(&conversation_id, &tool_msg)
@@ -541,10 +549,27 @@ impl Agent {
                 let query = arguments["query"].as_str().unwrap_or("");
                 let limit = arguments["limit"].as_u64().unwrap_or(5) as usize;
 
+                // Compute the query embedding once and share it between both
+                // searches to avoid two identical embedding API roundtrips.
+                let shared_embedding = self.memory.embeddings.try_embed_one(query).await;
+
+                // Run message and knowledge searches concurrently.
+                // They contend on the DB mutex internally but the embedding
+                // HTTP call (the slow part) is already done above.
+                let (msgs_result, entries_result) = tokio::join!(
+                    self.memory.search_messages_with_embedding(
+                        query,
+                        shared_embedding.clone(),
+                        limit
+                    ),
+                    self.memory
+                        .search_knowledge_with_embedding(query, shared_embedding, limit)
+                );
+
                 let mut results = Vec::new();
 
                 // Search conversations (hybrid vector + FTS5)
-                if let Ok(msgs) = self.memory.search_messages(query, limit).await {
+                if let Ok(msgs) = msgs_result {
                     for msg in msgs {
                         if let Some(content) = &msg.content {
                             results.push(format!("[{}]: {}", msg.role, content));
@@ -553,7 +578,7 @@ impl Agent {
                 }
 
                 // Search knowledge (hybrid vector + FTS5)
-                if let Ok(entries) = self.memory.search_knowledge(query, limit).await {
+                if let Ok(entries) = entries_result {
                     for entry in entries {
                         results.push(format!(
                             "[knowledge:{}] {} = {}",
@@ -864,6 +889,26 @@ fn validate_cron_expr(expr: &str) -> anyhow::Result<()> {
         );
     }
     Ok(())
+}
+
+/// Trim conversation history to at most `window` non-system messages, always
+/// keeping the system message at index 0. Returns a `Vec` that is either a
+/// clone of the full history (if within the window) or a truncated view.
+/// `window == 0` means unlimited.
+fn apply_context_window(messages: &[ChatMessage], window: usize) -> Vec<ChatMessage> {
+    if window == 0 || messages.len() <= window + 1 {
+        return messages.to_vec();
+    }
+    // Separate system message (if present) from the rest
+    let (system_msgs, rest): (Vec<_>, Vec<_>) = messages.iter().partition(|m| m.role == "system");
+    let trimmed_rest = if rest.len() > window {
+        rest[rest.len() - window..].to_vec()
+    } else {
+        rest
+    };
+    let mut result: Vec<ChatMessage> = system_msgs.into_iter().cloned().collect();
+    result.extend(trimmed_rest.into_iter().cloned());
+    result
 }
 
 /// Split a long response string into chunks of at most `max_len` characters.
